@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const motorcycle_controller_1 = require("./motorcycle.controller");
+const auth_1 = require("../middleware/auth");
+const router = (0, express_1.Router)();
+router.use(auth_1.authMiddleware);
+router.get("/", motorcycle_controller_1.MotorcycleController.list);
+router.get("/:id", motorcycle_controller_1.MotorcycleController.getById);
+router.post("/", motorcycle_controller_1.MotorcycleController.create);
+router.put("/:id", motorcycle_controller_1.MotorcycleController.update);
+router.delete("/:id", motorcycle_controller_1.MotorcycleController.delete);
+exports.default = router;
