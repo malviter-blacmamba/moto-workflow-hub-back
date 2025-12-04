@@ -95,6 +95,7 @@ class PromotionService {
             prisma_1.default.promotion.findMany({
                 where,
                 include: {
+                    rule: true,
                     freeService: true,
                 },
                 skip,

@@ -1,10 +1,7 @@
 // src/promotion/promotion.controller.ts
 import { Request, Response } from "express";
 import { PromotionService } from "./promotion.service";
-import type {
-  PromotionRuleType,
-  PromotionBenefitType,
-} from "./promotion.types";
+import type { PromotionBenefitType } from "./promotion.types";
 
 export class PromotionController {
   static async create(req: Request, res: Response) {
@@ -20,8 +17,9 @@ export class PromotionController {
     try {
       const id = Number(req.params.id);
       const promo = await PromotionService.getById(id);
-      if (!promo)
+      if (!promo) {
         return res.status(404).json({ error: "Promoción no encontrada" });
+      }
       res.json(promo);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -50,7 +48,7 @@ export class PromotionController {
 
   static async list(req: Request, res: Response) {
     try {
-      const { search, ruleType, benefitType } = req.query;
+      const { search, ruleId, benefitType } = req.query;
 
       // active viene como string "true"/"false"
       let active: boolean | undefined;
@@ -62,9 +60,17 @@ export class PromotionController {
       const page = req.query.page ? Number(req.query.page) : 1;
       const pageSize = req.query.pageSize ? Number(req.query.pageSize) : 10;
 
+      let parsedRuleId: number | undefined;
+      if (typeof ruleId === "string" && ruleId.trim() !== "") {
+        const n = Number(ruleId);
+        if (!Number.isNaN(n)) {
+          parsedRuleId = n;
+        }
+      }
+
       const result = await PromotionService.list({
         search: (search as string) || "",
-        ruleType: ruleType as PromotionRuleType | undefined,
+        ruleId: parsedRuleId,
         benefitType: benefitType as PromotionBenefitType | undefined,
         active,
         page,

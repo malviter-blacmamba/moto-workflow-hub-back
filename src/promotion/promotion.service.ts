@@ -2,32 +2,11 @@ import prisma from "../lib/prisma";
 import {
   PromotionDTO,
   PromotionFilters,
-  PromotionRuleType,
   PromotionBenefitType,
 } from "./promotion.types";
 
-function normalizeConditionFields(
-  dto: PromotionDTO | Partial<PromotionDTO>
-) {
+function normalizeConditionFields(dto: PromotionDTO | Partial<PromotionDTO>) {
   const data: any = { ...dto };
-
-  const ruleType = data.ruleType as PromotionRuleType | undefined;
-  if (ruleType) {
-    if (ruleType === "FIRST_VISIT") {
-      data.minVisits = null;
-      data.minTotalSpent = null;
-    } else if (ruleType === "VISITS_ACCUMULATED") {
-      data.visitNumber = null;
-      data.minTotalSpent = null;
-    } else if (ruleType === "TOTAL_SPENT") {
-      data.visitNumber = null;
-      data.minVisits = null;
-    } else if (ruleType === "REACTIVATION") {
-      data.visitNumber = null;
-      data.minVisits = null;
-      data.minTotalSpent = null;
-    }
-  }
 
   const benefitType = data.benefitType as PromotionBenefitType | undefined;
   if (benefitType) {
@@ -43,17 +22,24 @@ function normalizeConditionFields(
 
 export class PromotionService {
   static async create(input: PromotionDTO) {
-    const data = normalizeConditionFields({
+    const base = normalizeConditionFields({
       ...input,
       priority: input.priority ?? 1,
       accumulable: input.accumulable ?? false,
       active: input.active ?? true,
     });
 
+    const data: any = {
+      ...base,
+      startDate: base.startDate ? new Date(base.startDate) : undefined,
+      endDate: base.endDate ? new Date(base.endDate) : undefined,
+    };
+
     return prisma.promotion.create({
       data,
       include: {
         freeService: true,
+        rule: true,
       },
     });
   }
@@ -63,18 +49,27 @@ export class PromotionService {
       where: { id },
       include: {
         freeService: true,
+        rule: true,
       },
     });
   }
 
   static async update(id: number, dto: Partial<PromotionDTO>) {
-    const data = normalizeConditionFields(dto);
+    const base = normalizeConditionFields(dto);
+
+    const data: any = {
+      ...base,
+    };
+
+    if (base.startDate) data.startDate = new Date(base.startDate);
+    if (base.endDate) data.endDate = new Date(base.endDate);
 
     return prisma.promotion.update({
       where: { id },
       data,
       include: {
         freeService: true,
+        rule: true,
       },
     });
   }
@@ -87,7 +82,7 @@ export class PromotionService {
     const {
       search = "",
       active,
-      ruleType,
+      ruleId,
       benefitType,
       page = 1,
       pageSize = 10,
@@ -99,13 +94,14 @@ export class PromotionService {
     const where: any = {};
 
     if (typeof active === "boolean") where.active = active;
-    if (ruleType) where.ruleType = ruleType;
+    if (ruleId) where.ruleId = ruleId;
     if (benefitType) where.benefitType = benefitType;
 
     if (search) {
       where.OR = [
         { name: { contains: cleanSearch } },
         { description: { contains: cleanSearch } },
+        { rule: { name: { contains: cleanSearch } } },
       ];
     }
 
@@ -114,13 +110,11 @@ export class PromotionService {
         where,
         include: {
           freeService: true,
+          rule: true,
         },
         skip,
         take: pageSize,
-        orderBy: [
-          { priority: "asc" },
-          { startDate: "desc" },
-        ],
+        orderBy: [{ priority: "asc" }, { startDate: "desc" }],
       }),
       prisma.promotion.count({ where }),
     ]);
