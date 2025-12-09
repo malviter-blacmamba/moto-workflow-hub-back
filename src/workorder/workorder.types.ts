@@ -16,6 +16,18 @@ export interface WorkOrderExtraItemInput {
   unitPrice: number;
 }
 
+export type WorkOrderItemType = "SERVICE" | "PART";
+
+export interface WorkOrderItemInput {
+  type: WorkOrderItemType;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+  total: number;
+  serviceId?: number | null;
+}
+
 export interface WorkOrderCreateDTO {
   clientId: number;
   motorcycleId: number;
@@ -25,6 +37,8 @@ export interface WorkOrderCreateDTO {
 
   services?: WorkOrderServiceItemInput[];
   extraItems?: WorkOrderExtraItemInput[];
+
+  items?: WorkOrderItemInput[];
 }
 
 export interface WorkOrderUpdateDTO {
@@ -36,6 +50,8 @@ export interface WorkOrderUpdateDTO {
 
   services?: WorkOrderServiceItemInput[];
   extraItems?: WorkOrderExtraItemInput[];
+
+  items?: WorkOrderItemInput[];
 }
 
 export interface WorkOrderFilters {

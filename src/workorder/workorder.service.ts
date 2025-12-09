@@ -7,6 +7,7 @@ import {
     WorkOrderStatus,
     WorkOrderServiceItemInput,
     WorkOrderExtraItemInput,
+    WorkOrderItemInput,
 } from "./workorder.types";
 
 const TAX_RATE = 0.16;
@@ -108,15 +109,92 @@ function buildExtraItems(items: WorkOrderExtraItemInput[] | undefined) {
     return { result, subtotal };
 }
 
+function buildItemsFromUnified(items: WorkOrderItemInput[] | undefined) {
+    const serviceItems: {
+        serviceId: number;
+        quantity: number;
+        unitPrice: number;
+        total: number;
+    }[] = [];
+    const extraItems: {
+        name: string;
+        quantity: number;
+        unitPrice: number;
+        total: number;
+    }[] = [];
+    let subtotal = 0;
+
+    if (!items || items.length === 0) {
+        return { serviceItems, extraItems, subtotal };
+    }
+
+    for (const item of items) {
+        const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
+        const unitPrice = item.unitPrice;
+        const discount = item.discount ?? 0;
+        const total = quantity * unitPrice - discount;
+        subtotal += total;
+
+        if (item.type === "SERVICE") {
+            if (!item.serviceId) {
+                throw new Error("serviceId requerido para items de tipo SERVICE");
+            }
+
+            serviceItems.push({
+                serviceId: item.serviceId,
+                quantity,
+                unitPrice,
+                total,
+            });
+        } else {
+            extraItems.push({
+                name: item.description,
+                quantity,
+                unitPrice,
+                total,
+            });
+        }
+    }
+
+    return { serviceItems, extraItems, subtotal };
+}
+
 export class WorkOrderService {
     static async create(input: WorkOrderCreateDTO) {
         return prisma.$transaction(async (tx) => {
             const code = await generateWorkOrderCode(tx);
 
+            let servicesInput = input.services ?? [];
+            let extraItemsInput = input.extraItems ?? [];
+
+            if (
+                servicesInput.length === 0 &&
+                extraItemsInput.length === 0 &&
+                input.items &&
+                input.items.length > 0
+            ) {
+                for (const item of input.items) {
+                    if (item.type === "SERVICE" && item.serviceId) {
+                        servicesInput.push({
+                            serviceId: item.serviceId,
+                            quantity: item.quantity,
+                            unitPrice: item.unitPrice,
+                        });
+                    } else if (item.type === "PART") {
+                        extraItemsInput.push({
+                            name: item.description,
+                            quantity: item.quantity,
+                            unitPrice: item.unitPrice,
+                        });
+                    }
+                }
+            }
+
             const { result: serviceItems, subtotal: servicesSubtotal } =
-                await buildServiceItems(tx, input.services);
+                await buildServiceItems(tx, servicesInput);
+
             const { result: extraItems, subtotal: extrasSubtotal } =
-                buildExtraItems(input.extraItems);
+                buildExtraItems(extraItemsInput);
 
             const subtotal = servicesSubtotal + extrasSubtotal;
             const tax = subtotal * TAX_RATE;
@@ -182,17 +260,23 @@ export class WorkOrderService {
                 throw new Error("Orden de trabajo no encontrada");
             }
 
-            let serviceItemsData = existing.services;
-            let extraItemsData = existing.extraItems;
+            let serviceItemsData = existing.services as any[];
+            let extraItemsData = existing.extraItems as any[];
 
-            if (input.services) {
-                const built = await buildServiceItems(tx, input.services);
-                serviceItemsData = built.result as any;
-            }
+            if (input.items && input.items.length > 0) {
+                const built = buildItemsFromUnified(input.items);
+                serviceItemsData = built.serviceItems as any[];
+                extraItemsData = built.extraItems as any[];
+            } else {
+                if (input.services) {
+                    const built = await buildServiceItems(tx, input.services);
+                    serviceItemsData = built.result as any[];
+                }
 
-            if (input.extraItems) {
-                const built = buildExtraItems(input.extraItems);
-                extraItemsData = built.result as any;
+                if (input.extraItems) {
+                    const built = buildExtraItems(input.extraItems);
+                    extraItemsData = built.result as any[];
+                }
             }
 
             const servicesSubtotal = serviceItemsData.reduce(
@@ -207,11 +291,16 @@ export class WorkOrderService {
             const tax = subtotal * TAX_RATE;
             const total = subtotal + tax;
 
-            if (input.services) {
+            if (input.items && input.items.length > 0) {
                 await tx.workOrderServiceItem.deleteMany({ where: { workOrderId: id } });
-            }
-            if (input.extraItems) {
                 await tx.workOrderExtraItem.deleteMany({ where: { workOrderId: id } });
+            } else {
+                if (input.services) {
+                    await tx.workOrderServiceItem.deleteMany({ where: { workOrderId: id } });
+                }
+                if (input.extraItems) {
+                    await tx.workOrderExtraItem.deleteMany({ where: { workOrderId: id } });
+                }
             }
 
             const updated = await tx.workOrder.update({
@@ -219,17 +308,16 @@ export class WorkOrderService {
                 data: {
                     clientId: input.clientId ?? existing.clientId,
                     motorcycleId: input.motorcycleId ?? existing.motorcycleId,
-                    notes:
-                        input.notes !== undefined ? input.notes : existing.notes,
+                    notes: input.notes !== undefined ? input.notes : existing.notes,
                     status: (input.status ?? existing.status) as WorkOrderStatus,
                     date: input.date ? new Date(input.date) : existing.date,
                     subtotal,
                     tax,
                     total,
-                    ...(input.services && {
+                    ...(serviceItemsData.length > 0 && {
                         services: { create: serviceItemsData as any },
                     }),
-                    ...(input.extraItems && {
+                    ...(extraItemsData.length > 0 && {
                         extraItems: { create: extraItemsData as any },
                     }),
                 },

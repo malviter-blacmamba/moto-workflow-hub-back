@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { WorkOrderService } from "./workorder.service";
 import type { WorkOrderStatus } from "./workorder.types";
 
+import PDFDocument from "pdfkit";
 export class WorkOrderController {
     static async create(req: Request, res: Response) {
         try {
@@ -88,4 +89,99 @@ export class WorkOrderController {
             res.status(400).json({ error: err.message });
         }
     }
+
+    static async downloadPdf(req: Request, res: Response) {
+        try {
+            const id = Number(req.params.id);
+            const workOrder = await WorkOrderService.getById(id);
+
+            if (!workOrder) {
+                return res
+                    .status(404)
+                    .json({ error: "Orden de trabajo no encontrada" });
+            }
+
+            const filename = `${workOrder.code}.pdf`;
+
+            res.setHeader("Content-Type", "application/pdf");
+            res.setHeader(
+                "Content-Disposition",
+                `attachment; filename="${filename}"`
+            );
+
+            const doc = new PDFDocument({ size: "A4", margin: 50 });
+
+            doc.pipe(res);
+
+
+            doc
+                .fontSize(20)
+                .text(`Orden de trabajo ${workOrder.code}`, { align: "center" })
+                .moveDown();
+
+            doc.fontSize(12);
+            doc.text(`Fecha de orden: ${new Date(workOrder.date).toLocaleDateString()}`);
+            doc.text(`Cliente: ${workOrder.client?.name ?? workOrder.clientId}`);
+            doc.text(
+                `Moto: ${workOrder.motorcycle?.brand ?? ""} ${workOrder.motorcycle?.model ?? ""
+                } - ${workOrder.motorcycle?.plate ?? ""}`
+            );
+            doc.moveDown();
+
+            doc.fontSize(14).text("Servicios", { underline: true });
+            doc.moveDown(0.5);
+            if (workOrder.services.length === 0) {
+                doc.fontSize(12).text("Sin servicios registrados");
+            } else {
+                workOrder.services.forEach((item) => {
+                    const name = item.service?.name ?? `Servicio #${item.serviceId}`;
+                    doc
+                        .fontSize(12)
+                        .text(
+                            `${name}  x${item.quantity}  -  $${Number(
+                                item.total
+                            ).toLocaleString()}`
+                        );
+                });
+            }
+            doc.moveDown();
+
+            doc.fontSize(14).text("Piezas / Items adicionales", { underline: true });
+            doc.moveDown(0.5);
+            if (workOrder.extraItems.length === 0) {
+                doc.fontSize(12).text("Sin piezas adicionales");
+            } else {
+                workOrder.extraItems.forEach((item) => {
+                    doc
+                        .fontSize(12)
+                        .text(
+                            `${item.name}  x${item.quantity}  -  $${Number(
+                                item.total
+                            ).toLocaleString()}`
+                        );
+                });
+            }
+            doc.moveDown();
+
+            doc.moveDown();
+            doc.fontSize(14).text("Totales", { underline: true });
+            doc.moveDown(0.5);
+            doc.fontSize(12).text(`Subtotal: $${Number(workOrder.subtotal).toFixed(2)}`);
+            doc.fontSize(12).text(`IVA: $${Number(workOrder.tax).toFixed(2)}`);
+            doc.fontSize(12).text(`Total: $${Number(workOrder.total).toFixed(2)}`);
+
+            if (workOrder.notes) {
+                doc.moveDown();
+                doc.fontSize(14).text("Notas", { underline: true });
+                doc.moveDown(0.5);
+                doc.fontSize(12).text(workOrder.notes);
+            }
+
+            doc.end();
+        } catch (err: any) {
+            console.error(err);
+            res.status(500).json({ error: "Error al generar el PDF" });
+        }
+    }
+
 }
