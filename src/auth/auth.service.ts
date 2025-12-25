@@ -1,3 +1,4 @@
+// auth.service.ts
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma";
@@ -63,6 +64,15 @@ export class AuthService {
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new Error("Credenciales inválidas");
+
+    // ⬇⬇⬇ NUEVO: validar estado del usuario
+    if (user.status && user.status !== "ACTIVE") {
+      const err: any = new Error(
+        "Tu usuario está inactivo. Contacta al administrador."
+      );
+      err.code = "INACTIVE_USER";
+      throw err;
+    }
 
     const payload: JwtPayload = { id: user.id, role: user.role };
     const token = jwt.sign(payload, ENV.JWT_SECRET, {

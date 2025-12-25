@@ -9,6 +9,7 @@ import workOrderRoutes from "../workorder/workorder.routes";
 import reminderRoutes from "../reminder/reminder.routes";
 import reportRoutes from "../report/report.routes";
 import userRoutes from "../user/user.routes";
+import dashboardRoutes from "../dashboard/dashboard.routes";
 import { authMiddleware } from "../middleware/auth";
 
 const router = Router();
@@ -32,5 +33,6 @@ router.use("/work-orders", workOrderRoutes);
 router.use("/reminders", reminderRoutes);
 router.use("/reports", reportRoutes);
 router.use("/users", userRoutes);
+router.use("/dashboard", dashboardRoutes);
 
 export default router;

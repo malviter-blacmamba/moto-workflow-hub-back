@@ -1,9 +1,58 @@
 import prisma from "../lib/prisma";
 import { MotorcycleDTO, MotorcycleFilters } from "./motorcycle.types";
+import type { Motorcycle as MotorcycleModel } from "@prisma/client";
 
 export class MotorcycleService {
+  private static async syncNextMaintenanceReminder(moto: MotorcycleModel) {
+    if (!moto) return;
+
+    if (!moto.nextMaintenanceDate) {
+      await prisma.reminder.deleteMany({
+        where: {
+          motorcycleId: moto.id,
+          status: "PENDIENTE",
+        },
+      });
+      return;
+    }
+
+    const targetDate = new Date(moto.nextMaintenanceDate);
+    targetDate.setDate(targetDate.getDate() - 7);
+
+    const existing = await prisma.reminder.findFirst({
+      where: {
+        motorcycleId: moto.id,
+        status: "PENDIENTE",
+      },
+    });
+
+    if (existing) {
+      await prisma.reminder.update({
+        where: { id: existing.id },
+        data: {
+          clientId: moto.clientId,
+          targetDate,
+        },
+      });
+    } else {
+      await prisma.reminder.create({
+        data: {
+          clientId: moto.clientId,
+          motorcycleId: moto.id,
+          serviceId: null,
+          targetDate,
+          channel: "WHATSAPP",
+          status: "PENDIENTE",
+          notes: null,
+        },
+      });
+    }
+  }
+
   static async create(data: MotorcycleDTO) {
-    return prisma.motorcycle.create({ data });
+    const moto = await prisma.motorcycle.create({ data });
+    await this.syncNextMaintenanceReminder(moto);
+    return moto;
   }
 
   static async getById(id: number) {
@@ -18,10 +67,12 @@ export class MotorcycleService {
   }
 
   static async update(id: number, data: Partial<MotorcycleDTO>) {
-    return prisma.motorcycle.update({
+    const moto = await prisma.motorcycle.update({
       where: { id },
       data,
     });
+    await this.syncNextMaintenanceReminder(moto);
+    return moto;
   }
 
   static async delete(id: number) {
@@ -29,12 +80,7 @@ export class MotorcycleService {
   }
 
   static async list(filters: MotorcycleFilters) {
-    const {
-      search = "",
-      clientId,
-      page = 1,
-      pageSize = 10,
-    } = filters;
+    const { search = "", clientId, page = 1, pageSize = 10 } = filters;
 
     const skip = (page - 1) * pageSize;
     const cleanSearch = search.toLowerCase();

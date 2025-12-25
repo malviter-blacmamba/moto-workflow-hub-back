@@ -35,6 +35,9 @@ export interface WorkOrderCreateDTO {
   status?: WorkOrderStatus;
   date?: string | Date;
 
+  subtotal?: number;
+  total?: number;
+
   services?: WorkOrderServiceItemInput[];
   extraItems?: WorkOrderExtraItemInput[];
 
@@ -47,6 +50,9 @@ export interface WorkOrderUpdateDTO {
   notes?: string | null;
   status?: WorkOrderStatus;
   date?: string | Date;
+
+  subtotal?: number;
+  total?: number;
 
   services?: WorkOrderServiceItemInput[];
   extraItems?: WorkOrderExtraItemInput[];

@@ -16,8 +16,9 @@ class PromotionController {
         try {
             const id = Number(req.params.id);
             const promo = await promotion_service_1.PromotionService.getById(id);
-            if (!promo)
+            if (!promo) {
                 return res.status(404).json({ error: "Promoción no encontrada" });
+            }
             res.json(promo);
         }
         catch (err) {
@@ -46,7 +47,7 @@ class PromotionController {
     }
     static async list(req, res) {
         try {
-            const { search, ruleType, benefitType } = req.query;
+            const { search, ruleId, benefitType } = req.query;
             // active viene como string "true"/"false"
             let active;
             if (typeof req.query.active === "string") {
@@ -57,9 +58,16 @@ class PromotionController {
             }
             const page = req.query.page ? Number(req.query.page) : 1;
             const pageSize = req.query.pageSize ? Number(req.query.pageSize) : 10;
+            let parsedRuleId;
+            if (typeof ruleId === "string" && ruleId.trim() !== "") {
+                const n = Number(ruleId);
+                if (!Number.isNaN(n)) {
+                    parsedRuleId = n;
+                }
+            }
             const result = await promotion_service_1.PromotionService.list({
                 search: search || "",
-                ruleType: ruleType,
+                ruleId: parsedRuleId,
                 benefitType: benefitType,
                 active,
                 page,
