@@ -50,7 +50,12 @@ export class MotorcycleService {
   }
 
   static async create(data: MotorcycleDTO) {
-    const moto = await prisma.motorcycle.create({ data });
+    const moto = await prisma.motorcycle.create({
+      data: {
+        ...data,
+        type: data.type ?? "MOTO",
+      },
+    });
     await this.syncNextMaintenanceReminder(moto);
     return moto;
   }
@@ -60,8 +65,8 @@ export class MotorcycleService {
       where: { id },
       include: {
         client: true,
-        workOrders: true,
-        reminders: true,
+        workorder: true,
+        reminder: true,
       },
     });
   }
@@ -80,7 +85,7 @@ export class MotorcycleService {
   }
 
   static async list(filters: MotorcycleFilters) {
-    const { search = "", clientId, page = 1, pageSize = 10 } = filters;
+    const { search = "", clientId, type, page = 1, pageSize = 10 } = filters;
 
     const skip = (page - 1) * pageSize;
     const cleanSearch = search.toLowerCase();
@@ -88,6 +93,7 @@ export class MotorcycleService {
     const where: any = {};
 
     if (clientId) where.clientId = clientId;
+    if (type) where.type = type;
 
     if (search) {
       where.OR = [

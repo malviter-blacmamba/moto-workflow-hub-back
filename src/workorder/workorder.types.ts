@@ -4,6 +4,8 @@ export type WorkOrderStatus =
   | "LISTO"
   | "ENTREGADO";
 
+export type VehicleType = "MOTO" | "ATV";
+
 export interface WorkOrderServiceItemInput {
   serviceId: number;
   quantity?: number;
@@ -65,6 +67,7 @@ export interface WorkOrderFilters {
   status?: WorkOrderStatus;
   clientId?: number;
   motorcycleId?: number;
+  vehicleType?: VehicleType;
   dateFrom?: string;
   dateTo?: string;
   page?: number;

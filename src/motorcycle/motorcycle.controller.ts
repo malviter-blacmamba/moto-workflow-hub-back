@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { MotorcycleService } from "./motorcycle.service";
+import type { MotorcycleType } from "./motorcycle.types";
 
 export class MotorcycleController {
   static async create(req: Request, res: Response) {
@@ -44,7 +45,7 @@ export class MotorcycleController {
 
   static async list(req: Request, res: Response) {
     try {
-      const { search, clientId } = req.query;
+      const { search, clientId, type } = req.query;
 
       const page = req.query.page ? Number(req.query.page) : 1;
       const pageSize = req.query.pageSize ? Number(req.query.pageSize) : 10;
@@ -52,6 +53,7 @@ export class MotorcycleController {
       const result = await MotorcycleService.list({
         search: (search as string) || "",
         clientId: clientId ? Number(clientId) : undefined,
+        type: type ? (type as MotorcycleType) : undefined,
         page,
         pageSize,
       });

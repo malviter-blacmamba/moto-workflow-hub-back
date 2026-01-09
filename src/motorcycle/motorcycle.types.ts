@@ -1,7 +1,8 @@
-import type { Prisma } from "@prisma/client";
+export type MotorcycleType = "MOTO" | "ATV";
 
 export interface MotorcycleDTO {
   clientId: number;
+  type?: MotorcycleType;
   brand: string;
   model: string;
   year?: number;
@@ -16,6 +17,7 @@ export interface MotorcycleDTO {
 export interface MotorcycleFilters {
   search?: string;
   clientId?: number;
+  type?: MotorcycleType;
   page?: number;
   pageSize?: number;
 }

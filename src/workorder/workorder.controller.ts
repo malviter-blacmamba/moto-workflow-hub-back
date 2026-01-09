@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { WorkOrderService } from "./workorder.service";
-import type { WorkOrderStatus } from "./workorder.types";
+import type { WorkOrderStatus, VehicleType } from "./workorder.types";
 import PDFDocument from "pdfkit";
 
 export class WorkOrderController {
@@ -50,8 +50,15 @@ export class WorkOrderController {
 
   static async list(req: Request, res: Response) {
     try {
-      const { search, status, clientId, motorcycleId, dateFrom, dateTo } =
-        req.query;
+      const {
+        search,
+        status,
+        clientId,
+        motorcycleId,
+        vehicleType,
+        dateFrom,
+        dateTo,
+      } = req.query;
 
       const page = req.query.page ? Number(req.query.page) : 1;
       const pageSize = req.query.pageSize ? Number(req.query.pageSize) : 10;
@@ -61,6 +68,7 @@ export class WorkOrderController {
         status: status as WorkOrderStatus | undefined,
         clientId: clientId ? Number(clientId) : undefined,
         motorcycleId: motorcycleId ? Number(motorcycleId) : undefined,
+        vehicleType: vehicleType as VehicleType | undefined,
         dateFrom: dateFrom as string | undefined,
         dateTo: dateTo as string | undefined,
         page,
@@ -117,7 +125,7 @@ export class WorkOrderController {
       );
       doc.text(`Cliente: ${workOrder.client?.name ?? workOrder.clientId}`);
       doc.text(
-        `Moto: ${workOrder.motorcycle?.brand ?? ""} ${
+        `Vehículo: ${workOrder.motorcycle?.brand ?? ""} ${
           workOrder.motorcycle?.model ?? ""
         } - ${workOrder.motorcycle?.plate ?? ""}`
       );

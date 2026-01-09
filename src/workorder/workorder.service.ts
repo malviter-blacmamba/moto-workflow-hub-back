@@ -8,6 +8,7 @@ import {
   WorkOrderServiceItemInput,
   WorkOrderExtraItemInput,
   WorkOrderItemInput,
+  VehicleType,
 } from "./workorder.types";
 
 async function generateWorkOrderCode(
@@ -19,7 +20,7 @@ async function generateWorkOrderCode(
   const startOfYear = new Date(year, 0, 1);
   const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
 
-  const count = await tx.workOrder.count({
+  const count = await tx.workorder.count({
     where: {
       date: {
         gte: startOfYear,
@@ -35,7 +36,8 @@ async function generateWorkOrderCode(
 
 async function buildServiceItems(
   tx: Prisma.TransactionClient,
-  items: WorkOrderServiceItemInput[] | undefined
+  items: WorkOrderServiceItemInput[] | undefined,
+  allowedVehicleType: VehicleType
 ) {
   const result: {
     serviceId: number;
@@ -53,15 +55,24 @@ async function buildServiceItems(
     const service = await tx.service.findUnique({
       where: { id: item.serviceId },
     });
+
     if (!service) {
       throw new Error(`Servicio no encontrado (id: ${item.serviceId})`);
+    }
+
+    const serviceVehicleType = (service as any).vehicleType as VehicleType;
+
+    if (serviceVehicleType !== allowedVehicleType) {
+      throw new Error(
+        `El servicio (id: ${item.serviceId}) no corresponde al tipo de vehículo ${allowedVehicleType}`
+      );
     }
 
     const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
     const unitPrice =
       typeof item.unitPrice === "number"
         ? item.unitPrice
-        : Number(service.basePrice);
+        : Number((service as any).basePrice);
 
     const total = unitPrice * quantity;
     subtotal += total;
@@ -162,6 +173,16 @@ export class WorkOrderService {
     return prisma.$transaction(async (tx) => {
       const code = await generateWorkOrderCode(tx);
 
+      const vehicle = await tx.motorcycle.findUnique({
+        where: { id: input.motorcycleId },
+      });
+
+      if (!vehicle) {
+        throw new Error("Vehículo no encontrado");
+      }
+
+      const allowedVehicleType = (vehicle as any).type as VehicleType;
+
       let servicesInput = input.services ?? [];
       let extraItemsInput = input.extraItems ?? [];
 
@@ -189,7 +210,7 @@ export class WorkOrderService {
       }
 
       const { result: serviceItems, subtotal: servicesSubtotal } =
-        await buildServiceItems(tx, servicesInput);
+        await buildServiceItems(tx, servicesInput, allowedVehicleType);
 
       const { result: extraItems, subtotal: extrasSubtotal } =
         buildExtraItems(extraItemsInput);
@@ -201,30 +222,39 @@ export class WorkOrderService {
 
       const total = typeof input.total === "number" ? input.total : subtotal;
 
-      const workOrder = await tx.workOrder.create({
+      const workOrder = await tx.workorder.create({
         data: {
           code,
           clientId: input.clientId,
           motorcycleId: input.motorcycleId,
-          status: (input.status ?? "INGRESADO") as WorkOrderStatus,
+          status: (input.status ?? "INGRESADO") as any,
           notes: input.notes ?? null,
           date: input.date ? new Date(input.date) : new Date(),
-          subtotal,
-          total,
-          services: {
-            create: serviceItems,
+          subtotal: subtotal as any,
+          total: total as any,
+          updatedAt: new Date(),
+          workorderserviceitem: {
+            create: serviceItems.map((s) => ({
+              serviceId: s.serviceId,
+              quantity: s.quantity,
+              unitPrice: s.unitPrice as any,
+              total: s.total as any,
+            })),
           },
-          extraItems: {
-            create: extraItems,
+          workorderextraitem: {
+            create: extraItems.map((x) => ({
+              name: x.name,
+              quantity: x.quantity,
+              unitPrice: x.unitPrice as any,
+              total: x.total as any,
+            })),
           },
         },
         include: {
           client: true,
           motorcycle: true,
-          services: {
-            include: { service: true },
-          },
-          extraItems: true,
+          workorderserviceitem: { include: { service: true } },
+          workorderextraitem: true,
         },
       });
 
@@ -233,26 +263,24 @@ export class WorkOrderService {
   }
 
   static async getById(id: number) {
-    return prisma.workOrder.findUnique({
+    return prisma.workorder.findUnique({
       where: { id },
       include: {
         client: true,
         motorcycle: true,
-        services: {
-          include: { service: true },
-        },
-        extraItems: true,
+        workorderserviceitem: { include: { service: true } },
+        workorderextraitem: true,
       },
     });
   }
 
   static async update(id: number, input: WorkOrderUpdateDTO) {
     return prisma.$transaction(async (tx) => {
-      const existing = await tx.workOrder.findUnique({
+      const existing = await tx.workorder.findUnique({
         where: { id },
         include: {
-          services: true,
-          extraItems: true,
+          workorderserviceitem: true,
+          workorderextraitem: true,
         },
       });
 
@@ -260,16 +288,48 @@ export class WorkOrderService {
         throw new Error("Orden de trabajo no encontrada");
       }
 
-      let serviceItemsData = existing.services as any[];
-      let extraItemsData = existing.extraItems as any[];
+      const nextMotorcycleId = input.motorcycleId ?? existing.motorcycleId;
+
+      const vehicle = await tx.motorcycle.findUnique({
+        where: { id: nextMotorcycleId },
+      });
+
+      if (!vehicle) {
+        throw new Error("Vehículo no encontrado");
+      }
+
+      const allowedVehicleType = (vehicle as any).type as VehicleType;
+
+      let serviceItemsData = (existing as any).workorderserviceitem as any[];
+      let extraItemsData = (existing as any).workorderextraitem as any[];
 
       if (input.items && input.items.length > 0) {
         const built = buildItemsFromUnified(input.items);
-        serviceItemsData = built.serviceItems as any[];
+
+        if (built.serviceItems.length > 0) {
+          const { result } = await buildServiceItems(
+            tx,
+            built.serviceItems.map((s) => ({
+              serviceId: s.serviceId,
+              quantity: s.quantity,
+              unitPrice: s.unitPrice,
+            })),
+            allowedVehicleType
+          );
+
+          serviceItemsData = result as any[];
+        } else {
+          serviceItemsData = [];
+        }
+
         extraItemsData = built.extraItems as any[];
       } else {
         if (input.services) {
-          const built = await buildServiceItems(tx, input.services);
+          const built = await buildServiceItems(
+            tx,
+            input.services,
+            allowedVehicleType
+          );
           serviceItemsData = built.result as any[];
         }
 
@@ -295,70 +355,57 @@ export class WorkOrderService {
       const total = typeof input.total === "number" ? input.total : subtotal;
 
       if (input.items && input.items.length > 0) {
-        await tx.workOrderServiceItem.deleteMany({
+        await tx.workorderserviceitem.deleteMany({
           where: { workOrderId: id },
         });
-        await tx.workOrderExtraItem.deleteMany({ where: { workOrderId: id } });
+        await tx.workorderextraitem.deleteMany({ where: { workOrderId: id } });
       } else {
         if (input.services) {
-          await tx.workOrderServiceItem.deleteMany({
+          await tx.workorderserviceitem.deleteMany({
             where: { workOrderId: id },
           });
         }
         if (input.extraItems) {
-          await tx.workOrderExtraItem.deleteMany({
+          await tx.workorderextraitem.deleteMany({
             where: { workOrderId: id },
           });
         }
       }
 
-      const hasServices =
-        Array.isArray(serviceItemsData) && serviceItemsData.length > 0;
-      const hasExtras =
-        Array.isArray(extraItemsData) && extraItemsData.length > 0;
-
-      const updated = await tx.workOrder.update({
+      const updated = await tx.workorder.update({
         where: { id },
         data: {
           clientId: input.clientId ?? existing.clientId,
-          motorcycleId: input.motorcycleId ?? existing.motorcycleId,
+          motorcycleId: nextMotorcycleId,
           notes: input.notes !== undefined ? input.notes : existing.notes,
-          status: (input.status ?? existing.status) as WorkOrderStatus,
+          status: (input.status ?? existing.status) as any,
           date: input.date ? new Date(input.date) : existing.date,
-          subtotal,
-          total,
-          ...(hasServices
-            ? {
-                services: {
-                  deleteMany: {},
-                  create: serviceItemsData.map((s: any) => ({
-                    serviceId: s.serviceId,
-                    quantity: s.quantity,
-                    unitPrice: s.unitPrice,
-                    total: s.total,
-                  })),
-                },
-              }
-            : {}),
-          ...(hasExtras
-            ? {
-                extraItems: {
-                  deleteMany: {},
-                  create: extraItemsData.map((x: any) => ({
-                    name: x.name,
-                    quantity: x.quantity,
-                    unitPrice: x.unitPrice,
-                    total: x.total,
-                  })),
-                },
-              }
-            : {}),
+          subtotal: subtotal as any,
+          total: total as any,
+          workorderserviceitem: {
+            deleteMany: {},
+            create: serviceItemsData.map((s: any) => ({
+              serviceId: s.serviceId,
+              quantity: s.quantity,
+              unitPrice: s.unitPrice as any,
+              total: s.total as any,
+            })),
+          },
+          workorderextraitem: {
+            deleteMany: {},
+            create: extraItemsData.map((x: any) => ({
+              name: x.name,
+              quantity: x.quantity,
+              unitPrice: x.unitPrice as any,
+              total: x.total as any,
+            })),
+          },
         },
         include: {
           client: true,
           motorcycle: true,
-          services: { include: { service: true } },
-          extraItems: true,
+          workorderserviceitem: { include: { service: true } },
+          workorderextraitem: true,
         },
       });
 
@@ -367,17 +414,17 @@ export class WorkOrderService {
   }
 
   static async changeStatus(id: number, status: WorkOrderStatus) {
-    return prisma.workOrder.update({
+    return prisma.workorder.update({
       where: { id },
-      data: { status },
+      data: { status: status as any },
     });
   }
 
   static async delete(id: number) {
     return prisma.$transaction(async (tx) => {
-      await tx.workOrderServiceItem.deleteMany({ where: { workOrderId: id } });
-      await tx.workOrderExtraItem.deleteMany({ where: { workOrderId: id } });
-      await tx.workOrder.delete({ where: { id } });
+      await tx.workorderserviceitem.deleteMany({ where: { workOrderId: id } });
+      await tx.workorderextraitem.deleteMany({ where: { workOrderId: id } });
+      await tx.workorder.delete({ where: { id } });
     });
   }
 
@@ -387,6 +434,7 @@ export class WorkOrderService {
       status,
       clientId,
       motorcycleId,
+      vehicleType,
       dateFrom,
       dateTo,
       page = 1,
@@ -400,6 +448,10 @@ export class WorkOrderService {
     if (clientId) where.clientId = clientId;
     if (motorcycleId) where.motorcycleId = motorcycleId;
 
+    if (vehicleType) {
+      where.motorcycle = { type: vehicleType };
+    }
+
     if (dateFrom || dateTo) {
       where.date = {};
       if (dateFrom) where.date.gte = new Date(dateFrom);
@@ -411,23 +463,24 @@ export class WorkOrderService {
       where.OR = [
         { code: { contains: clean } },
         { client: { name: { contains: clean } } },
+        { notes: { contains: clean } },
       ];
     }
 
     const [items, total] = await prisma.$transaction([
-      prisma.workOrder.findMany({
+      prisma.workorder.findMany({
         where,
         include: {
           client: true,
           motorcycle: true,
-          services: { include: { service: true } },
-          extraItems: true,
+          workorderserviceitem: { include: { service: true } },
+          workorderextraitem: true,
         },
         skip,
         take: pageSize,
         orderBy: { date: "desc" },
       }),
-      prisma.workOrder.count({ where }),
+      prisma.workorder.count({ where }),
     ]);
 
     return {

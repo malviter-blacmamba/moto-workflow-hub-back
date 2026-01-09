@@ -6,213 +6,233 @@ datasource db {
   provider = "mysql"
 }
 
-enum Role {
-  ADMIN
-  USER
-}
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-}
-
-enum Membership {
-  BASIC
-  VIP
-  PREMIUM
-}
-
-enum MaintenanceRule {
-  NONE
-  BY_MONTHS
-  BY_KM
-}
-
-enum WorkOrderStatus {
-  INGRESADO
-  EN_PROGRESO
-  LISTO
-  ENTREGADO
-}
-
-
-enum PromotionBenefitType {
-  FIXED_AMOUNT
-  PERCENTAGE
-  FREE_SERVICE
-}
-
-enum ReminderChannel {
-  WHATSAPP
-  EMAIL
-}
-
-enum ReminderStatus {
-  PENDIENTE
-  ENVIADO
-  COMPLETADO
-}
-
-model User {
-  id           Int         @id @default(autoincrement())
-  name         String
-  email        String      @unique
-  password     String
-  role         Role        @default(USER)
-  status       UserStatus  @default(ACTIVE)
-  lastLoginAt  DateTime?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-}
-
-model Client {
-  id          Int       @id @default(autoincrement())
+model client {
+  id          Int               @id @default(autoincrement())
   name        String
   phone       String?
   email       String?
   address     String?
-  membership  Membership @default(BASIC)
+  membership  client_membership @default(BASIC)
   notes       String?
-
-  visitsCount Int       @default(0)
-  totalSpent  Decimal   @default(0) @db.Decimal(10, 2)
-
-  motorcycles Motorcycle[]
-  workOrders  WorkOrder[]
-  reminders   Reminder[]
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  visitsCount Int               @default(0)
+  totalSpent  Decimal           @default(0.00) @db.Decimal(10, 2)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  motorcycle  motorcycle[]
+  reminder    reminder[]
+  workorder   workorder[]
 }
 
-model Motorcycle {
-  id                  Int          @id @default(autoincrement())
+model motorcycle {
+  id                  Int             @id @default(autoincrement())
   clientId            Int
-  client              Client       @relation(fields: [clientId], references: [id])
   brand               String
   model               String
   year                Int?
   plate               String?
   color               String?
   vin                 String?
+  type                motorcycle_type @default(MOTO)
   mileageKm           Int?
   nextMaintenanceDate DateTime?
   notes               String?
-  workOrders          WorkOrder[]
-  reminders           Reminder[]
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  client              client          @relation(fields: [clientId], references: [id], map: "Motorcycle_clientId_fkey")
+  reminder            reminder[]
+  workorder           workorder[]
+
+  @@index([clientId, type], map: "idx_motorcycle_client_type")
 }
 
-model Service {
-  id               Int                     @id @default(autoincrement())
-  name             String
-  description      String?
-  basePrice        Decimal                 @db.Decimal(10, 2)
-  durationMinutes  Int?
-  maintenanceRule  MaintenanceRule         @default(NONE)
-  maintenanceValue Int?
-  workOrderItems   WorkOrderServiceItem[]  @relation("ServiceToWorkOrderServiceItem")
-  reminders        Reminder[]              @relation("ServiceToReminder")
-  promotions       Promotion[]             @relation("ServiceToPromotion")
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
+model promotion {
+  id            Int                   @id @default(autoincrement())
+  name          String
+  description   String?
+  visitNumber   Int?
+  minVisits     Int?
+  minTotalSpent Decimal?              @db.Decimal(10, 2)
+  benefitType   promotion_benefitType
+  benefitValue  Decimal?              @db.Decimal(10, 2)
+  freeServiceId Int?
+  startDate     DateTime
+  endDate       DateTime
+  priority      Int                   @default(1)
+  accumulable   Boolean               @default(false)
+  active        Boolean               @default(true)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  ruleId        Int
+  service       service?              @relation(fields: [freeServiceId], references: [id], map: "Promotion_freeServiceId_fkey")
+  promotionrule promotionrule         @relation(fields: [ruleId], references: [id], map: "Promotion_ruleId_fkey")
+
+  @@index([freeServiceId], map: "Promotion_freeServiceId_fkey")
+  @@index([ruleId], map: "Promotion_ruleId_fkey")
 }
 
-model WorkOrder {
-  id           Int                    @id @default(autoincrement())
-  code         String                 @unique
+model promotionrule {
+  id             Int         @id @default(autoincrement())
+  name           String
+  key            String      @unique(map: "PromotionRule_key_key")
+  conditionLabel String
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  promotion      promotion[]
+}
+
+model reminder {
+  id           Int              @id @default(autoincrement())
   clientId     Int
   motorcycleId Int
-  client       Client                 @relation(fields: [clientId], references: [id])
-  motorcycle   Motorcycle             @relation(fields: [motorcycleId], references: [id])
-  status       WorkOrderStatus        @default(INGRESADO)
+  serviceId    Int?
+  targetDate   DateTime
+  channel      reminder_channel
+  status       reminder_status  @default(PENDIENTE)
+  sentAt       DateTime?
   notes        String?
-  date         DateTime               @default(now())
-  subtotal     Decimal                @default(0) @db.Decimal(10, 2)
-  total        Decimal                @default(0) @db.Decimal(10, 2)
-  services     WorkOrderServiceItem[]
-  extraItems   WorkOrderExtraItem[]
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  client       client           @relation(fields: [clientId], references: [id], map: "Reminder_clientId_fkey")
+  motorcycle   motorcycle       @relation(fields: [motorcycleId], references: [id], map: "Reminder_motorcycleId_fkey")
+  service      service?         @relation(fields: [serviceId], references: [id], map: "Reminder_serviceId_fkey")
+
+  @@index([clientId], map: "Reminder_clientId_fkey")
+  @@index([motorcycleId], map: "Reminder_motorcycleId_fkey")
+  @@index([serviceId], map: "Reminder_serviceId_fkey")
 }
 
-model WorkOrderServiceItem {
-  id          Int       @id @default(autoincrement())
-  workOrderId Int
-  serviceId   Int
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
-  service     Service   @relation(fields: [serviceId], references: [id], name: "ServiceToWorkOrderServiceItem")
-  quantity    Int       @default(1)
-  unitPrice   Decimal   @db.Decimal(10, 2)
-  total       Decimal   @db.Decimal(10, 2)
+model service {
+  id                   Int                     @id @default(autoincrement())
+  name                 String
+  description          String?
+  basePrice            Decimal                 @db.Decimal(10, 2)
+  durationMinutes      Int?
+  maintenanceRule      service_maintenanceRule @default(NONE)
+  maintenanceValue     Int?
+  vehicleType          service_vehicleType     @default(MOTO)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  promotion            promotion[]
+  reminder             reminder[]
+  workorderserviceitem workorderserviceitem[]
+
+  @@index([vehicleType], map: "idx_service_vehicleType")
 }
 
-model WorkOrderExtraItem {
+model user {
+  id          Int         @id @default(autoincrement())
+  email       String      @unique(map: "User_email_key")
+  password    String
+  name        String
+  role        user_role   @default(USER)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  lastLoginAt DateTime?
+  status      user_status @default(ACTIVE)
+}
+
+model workorder {
+  id                   Int                    @id @default(autoincrement())
+  code                 String                 @unique(map: "WorkOrder_code_key")
+  clientId             Int
+  motorcycleId         Int
+  status               workorder_status       @default(INGRESADO)
+  notes                String?
+  date                 DateTime               @default(now())
+  subtotal             Decimal                @default(0.00) @db.Decimal(10, 2)
+  total                Decimal                @default(0.00) @db.Decimal(10, 2)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  client               client                 @relation(fields: [clientId], references: [id], map: "WorkOrder_clientId_fkey")
+  motorcycle           motorcycle             @relation(fields: [motorcycleId], references: [id], map: "WorkOrder_motorcycleId_fkey")
+  workorderextraitem   workorderextraitem[]
+  workorderserviceitem workorderserviceitem[]
+
+  @@index([clientId], map: "WorkOrder_clientId_fkey")
+  @@index([motorcycleId], map: "WorkOrder_motorcycleId_fkey")
+}
+
+model workorderextraitem {
   id          Int       @id @default(autoincrement())
   workOrderId Int
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
   name        String
   quantity    Int       @default(1)
   unitPrice   Decimal   @db.Decimal(10, 2)
   total       Decimal   @db.Decimal(10, 2)
+  workorder   workorder @relation(fields: [workOrderId], references: [id], map: "WorkOrderExtraItem_workOrderId_fkey")
+
+  @@index([workOrderId], map: "WorkOrderExtraItem_workOrderId_fkey")
 }
 
-model Promotion {
-  id             Int                   @id @default(autoincrement())
-  name           String
-  description    String?
+model workorderserviceitem {
+  id          Int       @id @default(autoincrement())
+  workOrderId Int
+  serviceId   Int
+  quantity    Int       @default(1)
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  total       Decimal   @db.Decimal(10, 2)
+  service     service   @relation(fields: [serviceId], references: [id], map: "WorkOrderServiceItem_serviceId_fkey")
+  workorder   workorder @relation(fields: [workOrderId], references: [id], map: "WorkOrderServiceItem_workOrderId_fkey")
 
-  ruleId         Int
-  rule           PromotionRule         @relation(fields: [ruleId], references: [id])
-
-  visitNumber    Int?
-  minVisits      Int?
-  minTotalSpent  Decimal?              @db.Decimal(10, 2)
-
-  benefitType    PromotionBenefitType
-  benefitValue   Decimal?              @db.Decimal(10, 2)
-
-  freeServiceId  Int?
-  freeService    Service?              @relation(fields: [freeServiceId], references: [id], name: "ServiceToPromotion")
-
-  startDate      DateTime
-  endDate        DateTime
-
-  priority       Int                   @default(1)
-  accumulable    Boolean               @default(false)
-  active         Boolean               @default(true)
-
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  @@index([serviceId], map: "WorkOrderServiceItem_serviceId_fkey")
+  @@index([workOrderId], map: "WorkOrderServiceItem_workOrderId_fkey")
 }
 
-model PromotionRule {
-  id             Int        @id @default(autoincrement())
-  name           String     // "Primera visita"
-  key            String     @unique // "first_visit"
-  conditionLabel String     // "Nº de visita (1 = primera)"
-  active         Boolean    @default(true)
-
-  promotions     Promotion[]
-
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+enum user_role {
+  ADMIN
+  USER
 }
 
-model Reminder {
-  id            Int             @id @default(autoincrement())
-  clientId      Int
-  motorcycleId  Int
-  serviceId     Int?
-  client        Client          @relation(fields: [clientId], references: [id])
-  motorcycle    Motorcycle      @relation(fields: [motorcycleId], references: [id])
-  service       Service?        @relation(fields: [serviceId], references: [id], name: "ServiceToReminder")
-  targetDate    DateTime
-  channel       ReminderChannel
-  status        ReminderStatus  @default(PENDIENTE)
-  sentAt        DateTime?
-  notes         String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+enum workorder_status {
+  INGRESADO
+  EN_PROGRESO
+  LISTO
+  ENTREGADO
+}
+
+enum client_membership {
+  BASIC
+  VIP
+  PREMIUM
+}
+
+enum reminder_channel {
+  WHATSAPP
+  EMAIL
+}
+
+enum service_maintenanceRule {
+  NONE
+  BY_MONTHS
+  BY_KM
+  BY_DAYS
+  BY_HOURS
+}
+
+enum promotion_benefitType {
+  FIXED_AMOUNT
+  PERCENTAGE
+  FREE_SERVICE
+}
+
+enum reminder_status {
+  PENDIENTE
+  ENVIADO
+  COMPLETADO
+}
+
+enum service_vehicleType {
+  MOTO
+  ATV
+}
+
+enum motorcycle_type {
+  MOTO
+  ATV
+}
+
+enum user_status {
+  ACTIVE
+  INACTIVE
 }
