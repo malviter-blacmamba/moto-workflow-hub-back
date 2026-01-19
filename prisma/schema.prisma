@@ -17,7 +17,7 @@ model client {
   visitsCount Int               @default(0)
   totalSpent  Decimal           @default(0.00) @db.Decimal(10, 2)
   createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  updatedAt   DateTime          @default(now()) @updatedAt
   motorcycle  motorcycle[]
   reminder    reminder[]
   workorder   workorder[]
@@ -34,10 +34,11 @@ model motorcycle {
   vin                 String?
   type                motorcycle_type @default(MOTO)
   mileageKm           Int?
+  hoursUsed           Int?
   nextMaintenanceDate DateTime?
   notes               String?
   createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  updatedAt           DateTime        @default(now()) @updatedAt
   client              client          @relation(fields: [clientId], references: [id], map: "Motorcycle_clientId_fkey")
   reminder            reminder[]
   workorder           workorder[]
@@ -61,7 +62,7 @@ model promotion {
   accumulable   Boolean               @default(false)
   active        Boolean               @default(true)
   createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  updatedAt     DateTime              @default(now()) @updatedAt
   ruleId        Int
   service       service?              @relation(fields: [freeServiceId], references: [id], map: "Promotion_freeServiceId_fkey")
   promotionrule promotionrule         @relation(fields: [ruleId], references: [id], map: "Promotion_ruleId_fkey")
@@ -77,7 +78,7 @@ model promotionrule {
   conditionLabel String
   active         Boolean     @default(true)
   createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  updatedAt      DateTime    @default(now()) @updatedAt
   promotion      promotion[]
 }
 
@@ -92,7 +93,7 @@ model reminder {
   sentAt       DateTime?
   notes        String?
   createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  updatedAt    DateTime         @default(now()) @updatedAt
   client       client           @relation(fields: [clientId], references: [id], map: "Reminder_clientId_fkey")
   motorcycle   motorcycle       @relation(fields: [motorcycleId], references: [id], map: "Reminder_motorcycleId_fkey")
   service      service?         @relation(fields: [serviceId], references: [id], map: "Reminder_serviceId_fkey")
@@ -112,7 +113,7 @@ model service {
   maintenanceValue     Int?
   vehicleType          service_vehicleType     @default(MOTO)
   createdAt            DateTime                @default(now())
-  updatedAt            DateTime                @updatedAt
+  updatedAt            DateTime                @default(now()) @updatedAt
   promotion            promotion[]
   reminder             reminder[]
   workorderserviceitem workorderserviceitem[]
@@ -127,7 +128,7 @@ model user {
   name        String
   role        user_role   @default(USER)
   createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  updatedAt   DateTime    @default(now()) @updatedAt
   lastLoginAt DateTime?
   status      user_status @default(ACTIVE)
 }
@@ -143,7 +144,7 @@ model workorder {
   subtotal             Decimal                @default(0.00) @db.Decimal(10, 2)
   total                Decimal                @default(0.00) @db.Decimal(10, 2)
   createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
+  updatedAt            DateTime               @default(now()) @updatedAt
   client               client                 @relation(fields: [clientId], references: [id], map: "WorkOrder_clientId_fkey")
   motorcycle           motorcycle             @relation(fields: [motorcycleId], references: [id], map: "WorkOrder_motorcycleId_fkey")
   workorderextraitem   workorderextraitem[]

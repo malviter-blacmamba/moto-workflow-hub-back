@@ -1,6 +1,6 @@
 import prisma from "../lib/prisma";
 import { MotorcycleDTO, MotorcycleFilters } from "./motorcycle.types";
-import type { Motorcycle as MotorcycleModel } from "@prisma/client";
+import type { motorcycle as MotorcycleModel } from "@prisma/client";
 
 export class MotorcycleService {
   private static async syncNextMaintenanceReminder(moto: MotorcycleModel) {
@@ -52,10 +52,23 @@ export class MotorcycleService {
   static async create(data: MotorcycleDTO) {
     const moto = await prisma.motorcycle.create({
       data: {
-        ...data,
-        type: data.type ?? "MOTO",
+        clientId: Number(data.clientId),
+        type: (data.type ?? "MOTO") as any,
+        brand: data.brand,
+        model: data.model,
+        year: data.year != null ? Number(data.year) : null,
+        plate: data.plate ?? null,
+        color: data.color ?? null,
+        vin: data.vin ?? null,
+        mileageKm: data.mileageKm != null ? Number(data.mileageKm) : null,
+        hoursUsed: data.hoursUsed != null ? Number(data.hoursUsed) : null,
+        nextMaintenanceDate: data.nextMaintenanceDate
+          ? new Date(data.nextMaintenanceDate)
+          : null,
+        notes: data.notes ?? null,
       },
     });
+
     await this.syncNextMaintenanceReminder(moto);
     return moto;
   }

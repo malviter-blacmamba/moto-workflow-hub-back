@@ -1,12 +1,12 @@
-// src/dashboard/dashboard.service.ts
-import type { WorkOrderStatus } from "@prisma/client";
-import { WorkOrderStatus as WorkOrderStatusEnum } from "@prisma/client";
+import { workorder_status } from "@prisma/client";
 import prisma from "../lib/prisma";
 import type {
   DashboardSummaryFilters,
   DashboardSummaryResponse,
   KanbanWorkOrderItem,
 } from "./dashboard.types";
+
+type WorkOrderStatus = (typeof workorder_status)[keyof typeof workorder_status];
 
 function toISODateOnly(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -61,20 +61,20 @@ export async function getDashboardSummary(
     await Promise.all([
       prisma.client.count(),
       prisma.motorcycle.count(),
-      prisma.workOrder.count(),
-      prisma.workOrder.count({
-        where: { status: { not: WorkOrderStatusEnum.ENTREGADO } },
+      prisma.workorder.count(),
+      prisma.workorder.count({
+        where: { status: { not: workorder_status.ENTREGADO } },
       }),
     ]);
 
-  const revenueAgg = await prisma.workOrder.aggregate({
+  const revenueAgg = await prisma.workorder.aggregate({
     where: { date: { gte: dateFrom, lte: dateTo } },
     _sum: { total: true },
   });
 
   const totalRevenue = Number(revenueAgg._sum.total ?? 0);
 
-  const grouped = await prisma.workOrder.groupBy({
+  const grouped = await prisma.workorder.groupBy({
     by: ["status"],
     _count: { _all: true },
   });
@@ -91,15 +91,15 @@ export async function getDashboardSummary(
   }
 
   const statuses: WorkOrderStatus[] = [
-    WorkOrderStatusEnum.INGRESADO,
-    WorkOrderStatusEnum.EN_PROGRESO,
-    WorkOrderStatusEnum.LISTO,
-    WorkOrderStatusEnum.ENTREGADO,
+    workorder_status.INGRESADO,
+    workorder_status.EN_PROGRESO,
+    workorder_status.LISTO,
+    workorder_status.ENTREGADO,
   ];
 
   const kanbanEntries = await Promise.all(
     statuses.map(async (status) => {
-      const items = await prisma.workOrder.findMany({
+      const items = await prisma.workorder.findMany({
         where: { status },
         orderBy: { date: "desc" },
         take: kanbanLimit,

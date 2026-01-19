@@ -10,6 +10,7 @@ export interface MotorcycleDTO {
   color?: string;
   vin?: string;
   mileageKm?: number;
+  hoursUsed?: number;
   nextMaintenanceDate?: Date | string;
   notes?: string;
 }

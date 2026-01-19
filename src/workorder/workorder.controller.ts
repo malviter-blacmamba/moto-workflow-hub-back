@@ -133,10 +133,12 @@ export class WorkOrderController {
 
       doc.fontSize(14).text("Servicios", { underline: true });
       doc.moveDown(0.5);
-      if (workOrder.services.length === 0) {
+
+      const serviceItems = (workOrder as any).workorderserviceitem ?? [];
+      if (serviceItems.length === 0) {
         doc.fontSize(12).text("Sin servicios registrados");
       } else {
-        workOrder.services.forEach((item) => {
+        serviceItems.forEach((item: any) => {
           const name = item.service?.name ?? `Servicio #${item.serviceId}`;
           doc
             .fontSize(12)
@@ -147,14 +149,17 @@ export class WorkOrderController {
             );
         });
       }
+
       doc.moveDown();
 
       doc.fontSize(14).text("Piezas / Items adicionales", { underline: true });
       doc.moveDown(0.5);
-      if (workOrder.extraItems.length === 0) {
+
+      const extraItems = (workOrder as any).workorderextraitem ?? [];
+      if (extraItems.length === 0) {
         doc.fontSize(12).text("Sin piezas adicionales");
       } else {
-        workOrder.extraItems.forEach((item) => {
+        extraItems.forEach((item: any) => {
           doc
             .fontSize(12)
             .text(

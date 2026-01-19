@@ -1,8 +1,16 @@
-/*
-  Warnings:
+SET @col := (
+  SELECT COUNT(*)
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'workorder'
+    AND COLUMN_NAME = 'tax'
+);
 
-  - You are about to drop the column `tax` on the `workorder` table. All the data in the column will be lost.
+SET @sql := IF(@col > 0,
+  'ALTER TABLE `workorder` DROP COLUMN `tax`;',
+  'SELECT 1;'
+);
 
-*/
--- AlterTable
-ALTER TABLE `workorder` DROP COLUMN `tax`;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

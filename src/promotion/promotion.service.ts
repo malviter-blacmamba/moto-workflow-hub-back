@@ -38,8 +38,8 @@ export class PromotionService {
     return prisma.promotion.create({
       data,
       include: {
-        freeService: true,
-        rule: true,
+        service: true,
+        promotionrule: true,
       },
     });
   }
@@ -48,8 +48,8 @@ export class PromotionService {
     return prisma.promotion.findUnique({
       where: { id },
       include: {
-        freeService: true,
-        rule: true,
+        service: true,
+        promotionrule: true,
       },
     });
   }
@@ -68,8 +68,8 @@ export class PromotionService {
       where: { id },
       data,
       include: {
-        freeService: true,
-        rule: true,
+        service: true,
+        promotionrule: true,
       },
     });
   }
@@ -109,8 +109,8 @@ export class PromotionService {
       prisma.promotion.findMany({
         where,
         include: {
-          freeService: true,
-          rule: true,
+          service: true,
+          promotionrule: true,
         },
         skip,
         take: pageSize,
