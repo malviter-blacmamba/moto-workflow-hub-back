@@ -1,5 +1,6 @@
 import prisma from "../lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { workorder_status } from "@prisma/client";
 import {
     DashboardSummaryFilters,
     TopServicesFilters,
@@ -7,7 +8,9 @@ import {
 
 export class ReportService {
     static async getDashboardSummary(filters: DashboardSummaryFilters) {
-        const where: Prisma.WorkOrderWhereInput = {};
+        const where: Prisma.workorderWhereInput = {
+            status: workorder_status.ENTREGADO,
+        };
 
         if (filters.dateFrom || filters.dateTo) {
             where.date = {};
@@ -15,20 +18,20 @@ export class ReportService {
             if (filters.dateTo) where.date.lte = new Date(filters.dateTo);
         }
 
-        const [agg, statusGroups, clientsCount, motorcyclesCount] =
+        const [agg, deliveredOrders, clientsCount, motorcyclesCount] =
             await prisma.$transaction([
-                prisma.workOrder.aggregate({
+                prisma.workorder.aggregate({
                     _sum: { total: true },
                     _avg: { total: true },
                     _count: true,
                     where,
                 }),
-                prisma.workOrder.groupBy({
-                    by: ["status"],
-                    _count: { _all: true },
+                prisma.workorder.findMany({
                     where,
-                    orderBy: {
-                        status: "asc",
+                    select: {
+                        id: true,
+                        clientId: true,
+                        status: true,
                     },
                 }),
                 prisma.client.count(),
@@ -37,25 +40,16 @@ export class ReportService {
 
         const totalRevenue = Number(agg._sum.total ?? 0);
         const avgTicket = Number(agg._avg.total ?? 0);
-        const totalWorkOrders = Number(agg._count ?? 0);
-
-        const statusCounts: Record<string, number> = {};
-        for (const row of statusGroups) {
-            const countAll =
-                typeof row._count === "object" && row._count !== null
-                    ? row._count._all ?? 0
-                    : 0;
-
-            statusCounts[row.status] = countAll;
-        }
+        const totalClosedOrders = Number(agg._count ?? 0);
+        const uniqueClients = new Set(deliveredOrders.map((item) => item.clientId)).size;
 
         return {
             totalRevenue,
             avgTicket,
-            totalWorkOrders,
+            totalClosedOrders,
             totalClients: clientsCount,
             totalMotorcycles: motorcyclesCount,
-            statusCounts,
+            attendedClients: uniqueClients,
             dateRange: {
                 dateFrom: filters.dateFrom ?? null,
                 dateTo: filters.dateTo ?? null,
@@ -66,21 +60,24 @@ export class ReportService {
     static async getTopServices(filters: TopServicesFilters) {
         const limit = filters.limit && filters.limit > 0 ? filters.limit : 5;
 
-        const whereWO: Prisma.WorkOrderWhereInput = {};
+        const workorderWhere: Prisma.workorderWhereInput = {
+            status: workorder_status.ENTREGADO,
+        };
+
         if (filters.dateFrom || filters.dateTo) {
-            whereWO.date = {};
-            if (filters.dateFrom) whereWO.date.gte = new Date(filters.dateFrom);
-            if (filters.dateTo) whereWO.date.lte = new Date(filters.dateTo);
+            workorderWhere.date = {};
+            if (filters.dateFrom) workorderWhere.date.gte = new Date(filters.dateFrom);
+            if (filters.dateTo) workorderWhere.date.lte = new Date(filters.dateTo);
         }
 
-        const group = await prisma.workOrderServiceItem.groupBy({
+        const group = await prisma.workorderserviceitem.groupBy({
             by: ["serviceId"],
             _sum: { total: true },
             _count: { _all: true },
-            where: Object.keys(whereWO).length
+            where: Object.keys(workorderWhere).length
                 ? {
-                    workOrder: {
-                        is: whereWO,
+                    workorder: {
+                        is: workorderWhere,
                     },
                 }
                 : undefined,
@@ -93,27 +90,23 @@ export class ReportService {
         });
 
         const serviceIds = group.map((g) => g.serviceId);
+
         const services = await prisma.service.findMany({
             where: { id: { in: serviceIds } },
+            select: {
+                id: true,
+                name: true,
+            },
         });
 
-        const serviceMap = new Map(services.map((s) => [s.id, s]));
+        const serviceMap = new Map(services.map((s) => [s.id, s.name]));
 
-        const items = group.map((g) => {
-            const service = serviceMap.get(g.serviceId);
-            return {
-                serviceId: g.serviceId,
-                serviceName: service?.name ?? "Servicio",
-                timesSold:
-                    typeof g._count === "object" && g._count !== null
-                        ? g._count._all ?? 0
-                        : 0,
-                revenue:
-                    typeof g._sum === "object" && g._sum !== null
-                        ? Number(g._sum.total ?? 0)
-                        : 0,
-            };
-        });
+        const items = group.map((g) => ({
+            serviceId: g.serviceId,
+            serviceName: serviceMap.get(g.serviceId) ?? "Servicio",
+            timesSold: g._count._all ?? 0,
+            revenue: Number(g._sum.total ?? 0),
+        }));
 
         return {
             items,

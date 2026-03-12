@@ -1,4 +1,3 @@
-// auth.service.ts
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma";
@@ -17,23 +16,34 @@ export class AuthService {
   static async register(data: RegisterDTO) {
     const name = data.name?.trim();
     const email = data.email?.toLowerCase().trim();
-    const password = data.password;
+    const password = data.password?.trim();
 
     if (!name || !email || !password) {
-      throw new Error("Nombre, email y contraseña son obligatorios");
+      const err: any = new Error("Nombre, email y contraseña son obligatorios");
+      err.status = 400;
+      throw err;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      throw new Error("Email no válido");
+      const err: any = new Error("Email no válido");
+      err.status = 400;
+      throw err;
     }
 
     if (password.length < 6) {
-      throw new Error("La contraseña debe tener al menos 6 caracteres");
+      const err: any = new Error("La contraseña debe tener al menos 6 caracteres");
+      err.status = 400;
+      throw err;
     }
 
     const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) throw new Error("Email ya registrado");
+
+    if (exists) {
+      const err: any = new Error("Email ya registrado");
+      err.status = 409;
+      throw err;
+    }
 
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
 
@@ -42,7 +52,7 @@ export class AuthService {
         name,
         email,
         password: hash,
-        role: data.role ?? "USER",
+        role: "USER",
       },
     });
 
@@ -53,32 +63,53 @@ export class AuthService {
     const normalizedEmail = email?.toLowerCase().trim();
 
     if (!normalizedEmail || !password) {
-      throw new Error("Email y contraseña son obligatorios");
+      const err: any = new Error("Email y contraseña son obligatorios");
+      err.status = 400;
+      throw err;
     }
 
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
 
-    if (!user) throw new Error("Credenciales inválidas");
-
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) throw new Error("Credenciales inválidas");
-
-    // ⬇⬇⬇ NUEVO: validar estado del usuario
-    if (user.status && user.status !== "ACTIVE") {
-      const err: any = new Error(
-        "Tu usuario está inactivo. Contacta al administrador."
-      );
-      err.code = "INACTIVE_USER";
+    if (!user) {
+      const err: any = new Error("Credenciales inválidas");
+      err.status = 401;
       throw err;
     }
+
+    const valid = await bcrypt.compare(password, user.password);
+
+    if (!valid) {
+      const err: any = new Error("Credenciales inválidas");
+      err.status = 401;
+      throw err;
+    }
+
+    if (user.status !== "ACTIVE") {
+      const err: any = new Error("Tu usuario está inactivo. Contacta al administrador.");
+      err.code = "INACTIVE_USER";
+      err.status = 403;
+      throw err;
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
     const payload: JwtPayload = { id: user.id, role: user.role };
     const token = jwt.sign(payload, ENV.JWT_SECRET, {
       expiresIn: "7d",
     });
 
-    return { user: toSafeUser(user), token };
+    const freshUser = await prisma.user.findUnique({
+      where: { id: user.id },
+    });
+
+    return {
+      user: toSafeUser(freshUser ?? user),
+      token,
+    };
   }
 }

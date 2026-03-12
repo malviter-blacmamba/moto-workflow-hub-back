@@ -25,14 +25,14 @@ router.get("/protected", authMiddleware, (req, res) => {
 });
 
 router.use("/clients", authMiddleware, clientRoutes);
-router.use("/motorcycles", motorcycleRoutes);
-router.use("/services", serviceRoutes);
-router.use("/promotions", promotionRoutes);
-router.use("/promotion-rules", promotionRuleRoutes);
-router.use("/work-orders", workOrderRoutes);
-router.use("/reminders", reminderRoutes);
-router.use("/reports", reportRoutes);
-router.use("/users", userRoutes);
-router.use("/dashboard", dashboardRoutes);
+router.use("/motorcycles", authMiddleware, motorcycleRoutes);
+router.use("/services", authMiddleware, serviceRoutes);
+router.use("/promotions", authMiddleware, promotionRoutes);
+router.use("/promotion-rules", authMiddleware, promotionRuleRoutes);
+router.use("/work-orders", authMiddleware, workOrderRoutes);
+router.use("/reminders", authMiddleware, reminderRoutes);
+router.use("/reports", authMiddleware, reportRoutes);
+router.use("/users", authMiddleware, userRoutes);
+router.use("/dashboard", authMiddleware, dashboardRoutes);
 
 export default router;

@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model client {
@@ -122,15 +123,17 @@ model service {
 }
 
 model user {
-  id          Int         @id @default(autoincrement())
-  email       String      @unique(map: "User_email_key")
-  password    String
-  name        String
-  role        user_role   @default(USER)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @default(now()) @updatedAt
-  lastLoginAt DateTime?
-  status      user_status @default(ACTIVE)
+  id             Int         @id @default(autoincrement())
+  email          String      @unique(map: "User_email_key")
+  password       String
+  name           String
+  role           user_role   @default(USER)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @default(now()) @updatedAt
+  lastLoginAt    DateTime?
+  status         user_status @default(ACTIVE)
+  createdOrders  workorder[] @relation("WorkOrderCreatedBy")
+  assignedOrders workorder[] @relation("WorkOrderAssignedTo")
 }
 
 model workorder {
@@ -138,20 +141,28 @@ model workorder {
   code                 String                 @unique(map: "WorkOrder_code_key")
   clientId             Int
   motorcycleId         Int
+  createdById          Int?
+  assignedToId         Int?
   status               workorder_status       @default(INGRESADO)
   notes                String?
   date                 DateTime               @default(now())
+  deliveredAt          DateTime?
   subtotal             Decimal                @default(0.00) @db.Decimal(10, 2)
   total                Decimal                @default(0.00) @db.Decimal(10, 2)
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @default(now()) @updatedAt
   client               client                 @relation(fields: [clientId], references: [id], map: "WorkOrder_clientId_fkey")
   motorcycle           motorcycle             @relation(fields: [motorcycleId], references: [id], map: "WorkOrder_motorcycleId_fkey")
+  createdBy            user?                  @relation("WorkOrderCreatedBy", fields: [createdById], references: [id], map: "WorkOrder_createdById_fkey")
+  assignedTo           user?                  @relation("WorkOrderAssignedTo", fields: [assignedToId], references: [id], map: "WorkOrder_assignedToId_fkey")
   workorderextraitem   workorderextraitem[]
   workorderserviceitem workorderserviceitem[]
 
   @@index([clientId], map: "WorkOrder_clientId_fkey")
   @@index([motorcycleId], map: "WorkOrder_motorcycleId_fkey")
+  @@index([createdById], map: "WorkOrder_createdById_fkey")
+  @@index([assignedToId], map: "WorkOrder_assignedToId_fkey")
+  @@index([status, deliveredAt], map: "idx_workorder_status_deliveredAt")
 }
 
 model workorderextraitem {

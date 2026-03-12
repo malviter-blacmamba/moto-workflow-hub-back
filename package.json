@@ -5,26 +5,26 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "seed:admin": "ts-node prisma/seed-admin.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "prisma:migrate": "npx prisma migrate dev",
-    "prisma:studio": "npx prisma studio",
+    "seed:admin": "ts-node prisma/seed-admin.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
     "test": "echo \"No test specified\" && exit 0"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/adapter-mariadb": "^7.0.1",
-    "@prisma/client": "^7.0.1",
+    "@prisma/client": "^6.19.2",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
     "pdfkit": "^0.17.2",
-    "prisma": "^7.0.1",
+    "prisma": "^6.19.2",
     "zod": "^4.1.13"
   },
   "devDependencies": {

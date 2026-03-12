@@ -1,25 +1,26 @@
-import type { Role, UserStatus } from "@prisma/client";
-
-export interface UserFilters {
-    search?: string;
-    role?: Role;
-    status?: UserStatus;
-    page?: number;
-    pageSize?: number;
-}
+export type UserRole = "ADMIN" | "USER";
+export type UserStatus = "ACTIVE" | "INACTIVE";
 
 export interface UserCreateDTO {
-    name: string;
-    email: string;
-    password: string;
-    role?: Role;
-    status?: UserStatus;
+  name: string;
+  email: string;
+  password: string;
+  role?: UserRole;
+  status?: UserStatus;
 }
 
 export interface UserUpdateDTO {
-    name?: string;
-    email?: string;
-    password?: string;
-    role?: Role;
-    status?: UserStatus;
+  name?: string;
+  email?: string;
+  password?: string;
+  role?: UserRole;
+  status?: UserStatus;
+}
+
+export interface UserFilters {
+  search?: string;
+  role?: UserRole;
+  status?: UserStatus;
+  page?: number;
+  pageSize?: number;
 }

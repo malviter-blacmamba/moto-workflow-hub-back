@@ -1,10 +1,15 @@
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
+import type { AuthRequest } from "./auth";
 
-export const adminMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    const user = (req as any).user;
-
-    if (!user || user.role !== "ADMIN") {
-        return res.status(403).json({ error: "Acceso restringido a administradores" });
+export const adminMiddleware = (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    if (!req.user || req.user.role !== "ADMIN") {
+        return res.status(403).json({
+            error: "Acceso restringido a administradores",
+        });
     }
 
     next();

@@ -5,6 +5,7 @@ import type {
   DashboardSummaryResponse,
   KanbanWorkOrderItem,
 } from "./dashboard.types";
+import type { UserRole } from "../auth/auth.types";
 
 type WorkOrderStatus = (typeof workorder_status)[keyof typeof workorder_status];
 
@@ -43,7 +44,8 @@ function clampInt(
 }
 
 export async function getDashboardSummary(
-  filters: DashboardSummaryFilters
+  filters: DashboardSummaryFilters,
+  role: UserRole
 ): Promise<DashboardSummaryResponse> {
   const now = new Date();
 
@@ -72,8 +74,6 @@ export async function getDashboardSummary(
     _sum: { total: true },
   });
 
-  const totalRevenue = Number(revenueAgg._sum.total ?? 0);
-
   const grouped = await prisma.workorder.groupBy({
     by: ["status"],
     _count: { _all: true },
@@ -100,7 +100,17 @@ export async function getDashboardSummary(
   const kanbanEntries = await Promise.all(
     statuses.map(async (status) => {
       const items = await prisma.workorder.findMany({
-        where: { status },
+        where: {
+          status,
+          NOT:
+            status === workorder_status.ENTREGADO
+              ? {
+                deliveredAt: {
+                  lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+                },
+              }
+              : undefined,
+        },
         orderBy: { date: "desc" },
         take: kanbanLimit,
         select: {
@@ -145,7 +155,7 @@ export async function getDashboardSummary(
 
   return {
     stats: {
-      totalRevenue,
+      totalRevenue: role === "ADMIN" ? Number(revenueAgg._sum.total ?? 0) : null,
       totalWorkOrders,
       activeWorkOrders,
       totalClients,

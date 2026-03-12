@@ -13,7 +13,7 @@ export class ReportController {
 
             res.json(data);
         } catch (err: any) {
-            res.status(400).json({ error: err.message });
+            res.status(400).json({ error: err.message ?? "Error al cargar reportes" });
         }
     }
 
@@ -29,7 +29,7 @@ export class ReportController {
 
             res.json(data);
         } catch (err: any) {
-            res.status(400).json({ error: err.message });
+            res.status(400).json({ error: err.message ?? "Error al cargar top services" });
         }
     }
 }
