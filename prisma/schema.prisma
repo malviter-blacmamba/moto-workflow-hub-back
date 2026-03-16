@@ -218,7 +218,7 @@ model workorderserviceitem {
 model workorder_photo {
   id          Int       @id @default(autoincrement())
   workOrderId Int
-  url         String
+  url         String    @db.LongText
   createdAt   DateTime  @default(now())
   workorder   workorder @relation(fields: [workOrderId], references: [id], map: "WorkOrderPhoto_workOrderId_fkey")
 
