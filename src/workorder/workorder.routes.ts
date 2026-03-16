@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { WorkOrderController } from "./workorder.controller";
 import { authMiddleware } from "../middleware/auth";
+import { adminMiddleware } from "../middleware/admin";
 
 const router = Router();
 
@@ -10,7 +11,7 @@ router.get("/", WorkOrderController.list);
 router.get("/:id", WorkOrderController.getById);
 router.post("/", WorkOrderController.create);
 router.put("/:id", WorkOrderController.update);
-router.delete("/:id", WorkOrderController.delete);
+router.delete("/:id", adminMiddleware, WorkOrderController.delete);
 router.get("/:id/pdf", WorkOrderController.downloadPdf);
 router.patch("/:id/status", WorkOrderController.changeStatus);
 

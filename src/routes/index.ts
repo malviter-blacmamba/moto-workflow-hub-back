@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response } from "express";
 import authRoutes from "../auth/auth.routes";
 import clientRoutes from "../client/client.routes";
 import motorcycleRoutes from "../motorcycle/motorcycle.routes";
@@ -10,7 +10,10 @@ import reminderRoutes from "../reminder/reminder.routes";
 import reportRoutes from "../report/report.routes";
 import userRoutes from "../user/user.routes";
 import dashboardRoutes from "../dashboard/dashboard.routes";
-import { authMiddleware } from "../middleware/auth";
+import notificationRoutes from "../notifications/notification.routes";
+import accountRoutes from "../account/account.routes";
+import searchRoutes from "../search/search.routes";
+import { authMiddleware, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -20,8 +23,8 @@ router.get("/status", (req, res) => {
   res.json({ ok: true, message: "Backend funcionando ✔️" });
 });
 
-router.get("/protected", authMiddleware, (req, res) => {
-  res.json({ message: "Acceso autorizado", user: (req as any).user });
+router.get("/protected", authMiddleware, (req: AuthRequest, res: Response) => {
+  res.json({ message: "Acceso autorizado", user: req.user });
 });
 
 router.use("/clients", authMiddleware, clientRoutes);
@@ -34,5 +37,8 @@ router.use("/reminders", authMiddleware, reminderRoutes);
 router.use("/reports", authMiddleware, reportRoutes);
 router.use("/users", authMiddleware, userRoutes);
 router.use("/dashboard", authMiddleware, dashboardRoutes);
+router.use("/notifications", authMiddleware, notificationRoutes);
+router.use("/account", authMiddleware, accountRoutes);
+router.use("/search", authMiddleware, searchRoutes);
 
 export default router;

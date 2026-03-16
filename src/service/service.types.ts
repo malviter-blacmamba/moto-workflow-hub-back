@@ -1,25 +1,19 @@
-export type VehicleType = "MOTO" | "ATV";
-export type MaintenanceRule =
-  | "NONE"
-  | "BY_MONTHS"
-  | "BY_KM"
-  | "BY_DAYS"
-  | "BY_HOURS";
+import type { service_maintenanceRule, service_vehicleType } from "@prisma/client";
 
 export interface ServiceFilters {
   search?: string;
-  vehicleType?: VehicleType;
-  maintenanceRule?: MaintenanceRule;
+  vehicleType?: service_vehicleType;
+  maintenanceRule?: service_maintenanceRule;
   page?: number;
   pageSize?: number;
 }
 
 export interface ServiceDTO {
-  vehicleType?: VehicleType;
+  vehicleType?: service_vehicleType;
   name: string;
-  description?: string;
+  description?: string | null;
   basePrice: number;
-  durationMinutes?: number;
-  maintenanceRule?: MaintenanceRule;
+  durationMinutes?: number | null;
+  maintenanceRule?: service_maintenanceRule;
   maintenanceValue?: number | null;
 }

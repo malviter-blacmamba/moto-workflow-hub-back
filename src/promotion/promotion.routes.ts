@@ -1,15 +1,14 @@
 import { Router } from "express";
 import { PromotionController } from "./promotion.controller";
-import { authMiddleware } from "../middleware/auth";
+import { adminMiddleware } from "../middleware/admin";
 
 const router = Router();
 
-router.use(authMiddleware);
-
 router.get("/", PromotionController.list);
 router.get("/:id", PromotionController.getById);
-router.post("/", PromotionController.create);
-router.put("/:id", PromotionController.update);
-router.delete("/:id", PromotionController.delete);
+
+router.post("/", adminMiddleware, PromotionController.create);
+router.put("/:id", adminMiddleware, PromotionController.update);
+router.delete("/:id", adminMiddleware, PromotionController.delete);
 
 export default router;

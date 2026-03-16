@@ -2,14 +2,15 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { ENV } from "../config/env";
 import prisma from "../lib/prisma";
-import type { JwtPayload, UserRole } from "../auth/auth.types";
+import { user_role, user_status } from "@prisma/client";
+import type { JwtPayload } from "../auth/auth.types";
 
 export interface AuthUser {
   id: number;
-  role: UserRole;
+  role: user_role;
   email: string;
   name: string;
-  status: "ACTIVE" | "INACTIVE";
+  status: user_status;
 }
 
 export interface AuthRequest extends Request {
@@ -57,7 +58,7 @@ export const authMiddleware = async (
       });
     }
 
-    req.user = user;
+    req.user = user as AuthUser;
     next();
   } catch {
     return res.status(401).json({ error: "Token inválido o expirado" });

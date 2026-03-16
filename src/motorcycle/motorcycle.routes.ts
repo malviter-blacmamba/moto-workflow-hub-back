@@ -1,10 +1,7 @@
 import { Router } from "express";
 import { MotorcycleController } from "./motorcycle.controller";
-import { authMiddleware } from "../middleware/auth";
 
 const router = Router();
-
-router.use(authMiddleware);
 
 router.get("/", MotorcycleController.list);
 router.get("/:id", MotorcycleController.getById);

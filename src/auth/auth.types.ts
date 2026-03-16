@@ -1,16 +1,10 @@
-export type UserRole = "ADMIN" | "USER";
+import type { user_role } from "@prisma/client";
 
 export interface JwtPayload {
   id: number;
-  role: UserRole;
+  role: user_role;
   iat?: number;
   exp?: number;
-}
-
-export interface RegisterDTO {
-  name: string;
-  email: string;
-  password: string;
 }
 
 export interface LoginDTO {

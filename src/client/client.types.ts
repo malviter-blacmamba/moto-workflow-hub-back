@@ -1,4 +1,4 @@
-export type Membership = "BASIC" | "VIP" | "PREMIUM";
+import type { client_membership } from "@prisma/client";
 
 export interface ClientFilters {
   search?: string;
@@ -11,6 +11,6 @@ export interface ClientDTO {
   phone?: string;
   email?: string;
   address?: string;
-  membership?: Membership;
+  membership?: client_membership;
   notes?: string;
 }

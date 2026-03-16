@@ -1,5 +1,4 @@
-// src/dashboard/dashboard.types.ts
-import type { WorkOrderStatus } from "@prisma/client";
+import type { workorder_status } from "@prisma/client";
 
 export type DashboardSummaryFilters = {
   dateFrom?: string;
@@ -8,7 +7,7 @@ export type DashboardSummaryFilters = {
 };
 
 export type DashboardStats = {
-  totalRevenue: number;
+  totalRevenue: number | null;
   totalWorkOrders: number;
   activeWorkOrders: number;
   totalClients: number;
@@ -20,7 +19,7 @@ export type KanbanWorkOrderItem = {
   code: string;
   clientId: number;
   motorcycleId: number;
-  status: WorkOrderStatus;
+  status: workorder_status;
   notes: string | null;
   date: string;
   subtotal: number;
@@ -29,11 +28,12 @@ export type KanbanWorkOrderItem = {
   motorcyclePlate: string | null;
   motorcycleBrand: string | null;
   motorcycleModel: string | null;
+  assignedToName: string | null;
 };
 
 export type DashboardSummaryResponse = {
   stats: DashboardStats;
-  statusCounts: Record<WorkOrderStatus, number>;
+  statusCounts: Record<workorder_status, number>;
   dateRange: { dateFrom: string; dateTo: string };
-  kanban: Record<WorkOrderStatus, KanbanWorkOrderItem[]>;
+  kanban: Record<workorder_status, KanbanWorkOrderItem[]>;
 };

@@ -1,56 +1,59 @@
-// src/promotion/promotion.controller.ts
-import { Request, Response } from "express";
+import { Response } from "express";
 import { PromotionService } from "./promotion.service";
-import type { PromotionBenefitType } from "./promotion.types";
+import type { promotion_benefitType } from "@prisma/client";
+import type { AuthRequest } from "../middleware/auth";
 
 export class PromotionController {
-  static async create(req: Request, res: Response) {
+  static async create(req: AuthRequest, res: Response) {
     try {
       const promo = await PromotionService.create(req.body);
       res.status(201).json(promo);
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      res.status(400).json({ error: err.message ?? "Error al crear promoción" });
     }
   }
 
-  static async getById(req: Request, res: Response) {
+  static async getById(req: AuthRequest, res: Response) {
     try {
       const id = Number(req.params.id);
       const promo = await PromotionService.getById(id);
+
       if (!promo) {
         return res.status(404).json({ error: "Promoción no encontrada" });
       }
+
       res.json(promo);
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      res.status(400).json({ error: err.message ?? "Error al obtener promoción" });
     }
   }
 
-  static async update(req: Request, res: Response) {
+  static async update(req: AuthRequest, res: Response) {
     try {
       const id = Number(req.params.id);
       const promo = await PromotionService.update(id, req.body);
       res.json(promo);
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      const status = err.message === "Promoción no encontrada" ? 404 : 400;
+      res.status(status).json({ error: err.message ?? "Error al actualizar promoción" });
     }
   }
 
-  static async delete(req: Request, res: Response) {
+  static async delete(req: AuthRequest, res: Response) {
     try {
       const id = Number(req.params.id);
       await PromotionService.delete(id);
       res.status(204).send();
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      const status = err.message === "Promoción no encontrada" ? 404 : 400;
+      res.status(status).json({ error: err.message ?? "Error al eliminar promoción" });
     }
   }
 
-  static async list(req: Request, res: Response) {
+  static async list(req: AuthRequest, res: Response) {
     try {
       const { search, ruleId, benefitType } = req.query;
 
-      // active viene como string "true"/"false"
       let active: boolean | undefined;
       if (typeof req.query.active === "string") {
         if (req.query.active === "true") active = true;
@@ -71,7 +74,7 @@ export class PromotionController {
       const result = await PromotionService.list({
         search: (search as string) || "",
         ruleId: parsedRuleId,
-        benefitType: benefitType as PromotionBenefitType | undefined,
+        benefitType: benefitType as promotion_benefitType | undefined,
         active,
         page,
         pageSize,
@@ -79,7 +82,7 @@ export class PromotionController {
 
       res.json(result);
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      res.status(400).json({ error: err.message ?? "Error al listar promociones" });
     }
   }
 }

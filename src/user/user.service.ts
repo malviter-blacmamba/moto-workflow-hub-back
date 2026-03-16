@@ -190,16 +190,33 @@ export class UserService {
             throw new Error("ID de usuario inválido");
         }
 
-        const existing = await prisma.user.findUnique({
-            where: { id },
-            select: { id: true },
+        return prisma.$transaction(async (tx) => {
+            const existing = await tx.user.findUnique({
+                where: { id },
+                select: { id: true },
+            });
+
+            if (!existing) {
+                throw new Error("Usuario no encontrado");
+            }
+
+            // Anular dependencias para evitar error de ForeignKeyConstraint
+            await tx.workorder.updateMany({
+                where: { createdById: id },
+                data: { createdById: null }
+            });
+
+            await tx.workorder.updateMany({
+                where: { assignedToId: id },
+                data: { assignedToId: null }
+            });
+
+            await tx.notification.deleteMany({
+                where: { userId: id }
+            });
+
+            await tx.user.delete({ where: { id } });
         });
-
-        if (!existing) {
-            throw new Error("Usuario no encontrado");
-        }
-
-        await prisma.user.delete({ where: { id } });
     }
 
     static async list(filters: UserFilters) {

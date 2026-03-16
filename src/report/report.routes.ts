@@ -8,5 +8,6 @@ router.use(adminMiddleware);
 
 router.get("/dashboard", ReportController.dashboard);
 router.get("/top-services", ReportController.topServices);
+router.get("/top-extra-items", ReportController.topExtraItems);
 
 export default router;

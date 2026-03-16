@@ -1,15 +1,9 @@
-export type WorkOrderStatus =
-  | "INGRESADO"
-  | "EN_PROGRESO"
-  | "LISTO"
-  | "ENTREGADO";
-
-export type VehicleType = "MOTO" | "ATV";
+import { workorder_status, service_vehicleType } from "@prisma/client";
 
 export interface WorkOrderServiceItemInput {
   serviceId: number;
   quantity?: number;
-  unitPrice?: number;
+  unitPrice: number;
 }
 
 export interface WorkOrderExtraItemInput {
@@ -18,56 +12,42 @@ export interface WorkOrderExtraItemInput {
   unitPrice: number;
 }
 
-export type WorkOrderItemType = "SERVICE" | "PART";
-
-export interface WorkOrderItemInput {
-  type: WorkOrderItemType;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  discount?: number;
-  total: number;
-  serviceId?: number | null;
-}
-
 export interface WorkOrderCreateDTO {
   clientId: number;
   motorcycleId: number;
+  assignedToId?: number | null;
+  promotionId?: number | null;
   notes?: string;
-  status?: WorkOrderStatus;
   date?: string | Date;
-
-  subtotal?: number;
-  total?: number;
-
+  subtotal: number;
+  discount?: number;
+  total: number;
   services?: WorkOrderServiceItemInput[];
   extraItems?: WorkOrderExtraItemInput[];
-
-  items?: WorkOrderItemInput[];
+  photos?: string[];
 }
 
 export interface WorkOrderUpdateDTO {
   clientId?: number;
   motorcycleId?: number;
+  assignedToId?: number | null;
+  promotionId?: number | null;
   notes?: string | null;
-  status?: WorkOrderStatus;
   date?: string | Date;
-
   subtotal?: number;
+  discount?: number;
   total?: number;
-
   services?: WorkOrderServiceItemInput[];
   extraItems?: WorkOrderExtraItemInput[];
-
-  items?: WorkOrderItemInput[];
+  photos?: string[];
 }
 
 export interface WorkOrderFilters {
   search?: string;
-  status?: WorkOrderStatus;
+  status?: workorder_status;
   clientId?: number;
   motorcycleId?: number;
-  vehicleType?: VehicleType;
+  vehicleType?: service_vehicleType;
   dateFrom?: string;
   dateTo?: string;
   page?: number;

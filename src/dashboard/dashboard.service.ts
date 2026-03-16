@@ -1,4 +1,4 @@
-import { workorder_status } from "@prisma/client";
+import { workorder_status, Prisma } from "@prisma/client";
 import prisma from "../lib/prisma";
 import type {
   DashboardSummaryFilters,
@@ -74,10 +74,12 @@ export async function getDashboardSummary(
     _sum: { total: true },
   });
 
-  const grouped = await prisma.workorder.groupBy({
-    by: ["status"],
-    _count: { _all: true },
-  });
+  const statuses: WorkOrderStatus[] = [
+    workorder_status.INGRESADO,
+    workorder_status.EN_PROGRESO,
+    workorder_status.LISTO,
+    workorder_status.ENTREGADO,
+  ];
 
   const statusCounts: Record<WorkOrderStatus, number> = {
     INGRESADO: 0,
@@ -86,47 +88,45 @@ export async function getDashboardSummary(
     ENTREGADO: 0,
   };
 
-  for (const row of grouped) {
-    statusCounts[row.status] = row._count._all;
-  }
-
-  const statuses: WorkOrderStatus[] = [
-    workorder_status.INGRESADO,
-    workorder_status.EN_PROGRESO,
-    workorder_status.LISTO,
-    workorder_status.ENTREGADO,
-  ];
-
   const kanbanEntries = await Promise.all(
     statuses.map(async (status) => {
-      const items = await prisma.workorder.findMany({
-        where: {
-          status,
-          NOT:
-            status === workorder_status.ENTREGADO
-              ? {
-                deliveredAt: {
-                  lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-                },
-              }
-              : undefined,
-        },
-        orderBy: { date: "desc" },
-        take: kanbanLimit,
-        select: {
-          id: true,
-          code: true,
-          clientId: true,
-          motorcycleId: true,
-          status: true,
-          notes: true,
-          date: true,
-          subtotal: true,
-          total: true,
-          client: { select: { name: true } },
-          motorcycle: { select: { plate: true, brand: true, model: true } },
-        },
-      });
+      // Definimos la regla de búsqueda UNA sola vez para conteo y tarjetas
+      const whereClause: Prisma.workorderWhereInput = {
+        status,
+        NOT:
+          status === workorder_status.ENTREGADO
+            ? {
+              deliveredAt: {
+                lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+              },
+            }
+            : undefined,
+      };
+
+      const [totalInColumn, items] = await prisma.$transaction([
+        prisma.workorder.count({ where: whereClause }),
+        prisma.workorder.findMany({
+          where: whereClause,
+          orderBy: { date: "desc" },
+          take: kanbanLimit,
+          select: {
+            id: true,
+            code: true,
+            clientId: true,
+            motorcycleId: true,
+            status: true,
+            notes: true,
+            date: true,
+            subtotal: true,
+            total: true,
+            client: { select: { name: true } },
+            motorcycle: { select: { plate: true, brand: true, model: true } },
+            assignedTo: { select: { name: true } }, // Agregado el responsable
+          },
+        }),
+      ]);
+
+      statusCounts[status] = totalInColumn;
 
       const mapped: KanbanWorkOrderItem[] = items.map((o) => ({
         id: o.id,
@@ -142,6 +142,7 @@ export async function getDashboardSummary(
         motorcyclePlate: o.motorcycle.plate ?? null,
         motorcycleBrand: o.motorcycle.brand ?? null,
         motorcycleModel: o.motorcycle.model ?? null,
+        assignedToName: o.assignedTo?.name ?? null,
       }));
 
       return [status, mapped] as const;

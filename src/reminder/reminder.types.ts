@@ -1,14 +1,12 @@
-export type ReminderChannel = "WHATSAPP" | "EMAIL";
-
-export type ReminderStatus = "PENDIENTE" | "ENVIADO" | "COMPLETADO";
+import { reminder_channel, reminder_status } from "@prisma/client";
 
 export interface ReminderCreateDTO {
     clientId: number;
     motorcycleId: number;
-    serviceId?: number | null;
+    serviceId: number;
     targetDate: string | Date;
-    channel: ReminderChannel;
-    status?: ReminderStatus;
+    channel: reminder_channel;
+    status?: reminder_status;
     notes?: string | null;
 }
 
@@ -17,10 +15,10 @@ export interface ReminderUpdateDTO {
     motorcycleId?: number;
     serviceId?: number | null;
     targetDate?: string | Date;
-    channel?: ReminderChannel;
-    status?: ReminderStatus;
-    notes?: string | null;
+    channel?: reminder_channel;
+    status?: reminder_status;
     sentAt?: string | Date | null;
+    notes?: string | null;
 }
 
 export interface ReminderFilters {
@@ -28,8 +26,8 @@ export interface ReminderFilters {
     clientId?: number;
     motorcycleId?: number;
     serviceId?: number;
-    channel?: ReminderChannel;
-    status?: ReminderStatus;
+    channel?: reminder_channel;
+    status?: reminder_status;
     dateFrom?: string;
     dateTo?: string;
     page?: number;
