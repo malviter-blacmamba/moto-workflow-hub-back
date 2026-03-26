@@ -316,6 +316,30 @@ export class WorkOrderService {
         },
       });
 
+      await tx.notification.create({
+        data: {
+          userId: currentUserId,
+          type: "NEW_WORKORDER",
+          title: "Nueva Orden Creada",
+          message: `Has creado la orden ${code} exitosamente.`,
+          entityType: "WORKORDER",
+          entityId: workOrder.id,
+        }
+      });
+
+      if (assignedToId && assignedToId !== currentUserId) {
+        await tx.notification.create({
+          data: {
+            userId: assignedToId,
+            type: "NEW_WORKORDER",
+            title: "Nueva Orden Asignada",
+            message: `Se te ha asignado la orden ${code} para trabajar.`,
+            entityType: "WORKORDER",
+            entityId: workOrder.id,
+          }
+        });
+      }
+
       return workOrder;
     });
   }

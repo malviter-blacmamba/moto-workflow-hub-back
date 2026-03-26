@@ -28,7 +28,7 @@ export type KanbanWorkOrderItem = {
   motorcyclePlate: string | null;
   motorcycleBrand: string | null;
   motorcycleModel: string | null;
-  assignedToName: string | null;
+  assignedTo: { id: number; name: string } | null;
 };
 
 export type DashboardSummaryResponse = {

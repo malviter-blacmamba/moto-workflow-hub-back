@@ -43,7 +43,7 @@ function buildDeliveredWhere(filters: DashboardSummaryFilters): Prisma.workorder
 }
 
 export class ReportService {
-    static async getDashboardSummary(filters: DashboardSummaryFilters) {
+    static async getDashboardSummary(filters: DashboardSummaryFilters & { groupBy?: "day" | "week" | "month" }) {
         const where = buildDeliveredWhere(filters);
 
         const [agg, deliveredOrders, clientsCount, motorcyclesCount] =
@@ -72,8 +72,8 @@ export class ReportService {
 
         const totalRevenue = Number(agg._sum.total ?? 0);
         const avgTicket = Number(agg._avg.total ?? 0);
-        const totalClosedOrders = Number(agg._count ?? 0);
-        const attendedClients = new Set(deliveredOrders.map((item) => item.clientId)).size;
+        const totalWorkOrders = Number(agg._count ?? 0);
+        const uniqueClientsServed = new Set(deliveredOrders.map((item) => item.clientId)).size;
 
         const clientFirstOrders = await prisma.workorder.groupBy({
             by: ["clientId"],
@@ -90,7 +90,7 @@ export class ReportService {
         );
 
         let newClients = 0;
-        let recurrentClients = 0;
+        let recurringClients = 0;
 
         const uniqueDeliveredClients = [...new Set(deliveredOrders.map((item) => item.clientId))];
 
@@ -100,16 +100,16 @@ export class ReportService {
 
             if (!deliveredInRange || !firstDate) continue;
 
-            const hasPreviousDelivered = firstDate < deliveredOrders.find((item) => item.clientId === clientId)!.date;
+            const firstDelivered = deliveredOrders.find((item) => item.clientId === clientId)!.date;
+            const hasPreviousDelivered = firstDate < firstDelivered;
 
             if (hasPreviousDelivered) {
-                recurrentClients += 1;
+                recurringClients += 1;
             } else {
                 newClients += 1;
             }
         }
 
-        // Lógica para la gráfica de ventas
         const groupingType = filters.groupBy || "day";
         const salesMap = new Map<string, number>();
 
@@ -122,7 +122,6 @@ export class ReportService {
             } else if (groupingType === "month") {
                 key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
             } else if (groupingType === "week") {
-                // Cálculo simple de semana ISO
                 const dCopy = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
                 dCopy.setUTCDate(dCopy.getUTCDate() + 4 - (dCopy.getUTCDay() || 7));
                 const yearStart = new Date(Date.UTC(dCopy.getUTCFullYear(), 0, 1));
@@ -138,32 +137,22 @@ export class ReportService {
             total
         }));
 
-        const topServices = await this.getTopServices({
-            dateFrom: filters.dateFrom,
-            dateTo: filters.dateTo,
-            limit: 5,
-        });
-
-        const topExtraItems = await this.getTopExtraItems({
-            dateFrom: filters.dateFrom,
-            dateTo: filters.dateTo,
-            limit: 5,
-        });
-
         return {
             totalRevenue,
             avgTicket,
-            totalClosedOrders,
+            totalWorkOrders,
             totalClients: clientsCount,
             totalMotorcycles: motorcyclesCount,
-            attendedClients,
-            recurrence: {
-                newClients,
-                recurrentClients,
+            uniqueClientsServed,
+            newClients,
+            recurringClients,
+            salesByPeriod,
+            statusCounts: {
+                INGRESADO: 0,
+                EN_PROGRESO: 0,
+                LISTO: 0,
+                ENTREGADO: totalWorkOrders,
             },
-            salesByPeriod, // Arreglo para dibujar la gráfica
-            topServices: topServices.items,
-            topExtraItems: topExtraItems.items,
             dateRange: {
                 dateFrom: filters.dateFrom ?? null,
                 dateTo: filters.dateTo ?? null,
@@ -180,9 +169,7 @@ export class ReportService {
             _sum: { total: true },
             _count: { _all: true },
             where: {
-                workorder: {
-                    is: workorderWhere,
-                },
+                workorder: workorderWhere,
             },
             orderBy: {
                 _sum: {
@@ -226,9 +213,7 @@ export class ReportService {
 
         const items = await prisma.workorderextraitem.findMany({
             where: {
-                workorder: {
-                    is: workorderWhere,
-                },
+                workorder: workorderWhere,
             },
             select: {
                 name: true,
@@ -239,7 +224,7 @@ export class ReportService {
 
         const grouped = new Map<
             string,
-            { itemName: string; timesSold: number; quantitySold: number; revenue: number }
+            { description: string; timesSold: number; quantitySold: number; revenue: number }
         >();
 
         for (const item of items) {
@@ -252,7 +237,7 @@ export class ReportService {
                 existing.revenue += Number(item.total);
             } else {
                 grouped.set(key, {
-                    itemName: item.name,
+                    description: item.name,
                     timesSold: 1,
                     quantitySold: item.quantity,
                     revenue: Number(item.total),

@@ -5,7 +5,6 @@ import type {
   DashboardSummaryResponse,
   KanbanWorkOrderItem,
 } from "./dashboard.types";
-import type { UserRole } from "../auth/auth.types";
 
 type WorkOrderStatus = (typeof workorder_status)[keyof typeof workorder_status];
 
@@ -45,7 +44,7 @@ function clampInt(
 
 export async function getDashboardSummary(
   filters: DashboardSummaryFilters,
-  role: UserRole
+  role: "ADMIN" | "USER" | string
 ): Promise<DashboardSummaryResponse> {
   const now = new Date();
 
@@ -90,7 +89,6 @@ export async function getDashboardSummary(
 
   const kanbanEntries = await Promise.all(
     statuses.map(async (status) => {
-      // Definimos la regla de búsqueda UNA sola vez para conteo y tarjetas
       const whereClause: Prisma.workorderWhereInput = {
         status,
         NOT:
@@ -121,7 +119,7 @@ export async function getDashboardSummary(
             total: true,
             client: { select: { name: true } },
             motorcycle: { select: { plate: true, brand: true, model: true } },
-            assignedTo: { select: { name: true } }, // Agregado el responsable
+            assignedTo: { select: { id: true, name: true } },
           },
         }),
       ]);
@@ -142,7 +140,7 @@ export async function getDashboardSummary(
         motorcyclePlate: o.motorcycle.plate ?? null,
         motorcycleBrand: o.motorcycle.brand ?? null,
         motorcycleModel: o.motorcycle.model ?? null,
-        assignedToName: o.assignedTo?.name ?? null,
+        assignedTo: o.assignedTo ? { id: o.assignedTo.id, name: o.assignedTo.name } : null,
       }));
 
       return [status, mapped] as const;
